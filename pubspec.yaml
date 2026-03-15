@@ -1,0 +1,38 @@
+name: shark_space
+description: VentureBridge - Connect entrepreneurs with investors
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # ✅ Supabase — إصدار محدد بدقة، pub يختار الإصدارات الفرعية تلقائياً
+  supabase_flutter: 2.5.6
+
+  # State Management
+  flutter_riverpod: ^2.5.1
+
+  # Navigation
+  go_router: ^14.2.0
+
+
+  # Models
+  equatable: ^2.0.5
+
+  # UI
+  cached_network_image: ^3.3.1
+  flutter_rating_bar: ^4.0.1
+  image_picker: ^1.1.2
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
