@@ -6,6 +6,7 @@ import '../../../../providers/project_provider.dart';
 import '../../../../providers/likes_provider.dart';
 import '../../../../providers/ratings_provider.dart';
 import '../../../../providers/messaging_provider.dart';
+import 'reviews_screen.dart';
 import '../../../../widgets/common/rating_display.dart';
 
 class ProjectDetailScreen extends ConsumerStatefulWidget {
@@ -348,6 +349,23 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                     _SectionTitle(title: 'Ratings'),
                     const SizedBox(height: 8),
                     RatingDisplay(summary: ratingSummary),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => ReviewsScreen(
+                                targetId: widget.projectId,
+                                title: '${project.title} Reviews',
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.rate_review_outlined),
+                        label: const Text('View Reviews'),
+                      ),
+                    ),
                   ],
                 ],
               ),

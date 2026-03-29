@@ -470,6 +470,15 @@ class SupabaseService {
         distribution: dist);
   }
 
+  Future<List<Rating>> getRatingsForTarget(String targetId) async {
+    final res = await client
+        .from(SupabaseConstants.ratingsTable)
+        .select()
+        .eq('target_id', targetId)
+        .order('created_at', ascending: false);
+    return (res as List).map((j) => Rating.fromJson(j)).toList();
+  }
+
   // ══════════════════ MESSAGES ══════════════════
 
   /// ✅ جلب المحادثات مع بيانات المستخدم الآخر الكاملة
