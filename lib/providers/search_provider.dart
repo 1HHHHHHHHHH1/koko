@@ -6,47 +6,52 @@ import '../models/project.dart';
 import '../models/investor.dart';
 
 class SearchState {
-  final String        query;
-  final String?       filterType;
-  final List<User>    userResults;
+  static const Object _unset = Object();
+
+  final String query;
+  final String? filterType;
+  final List<User> userResults;
   final List<Project> projectResults;
   final List<Investor> investorResults;
-  final bool          isLoading;
-  final String?       error;
-  final bool          hasSearched;
+  final bool isLoading;
+  final String? error;
+  final bool hasSearched;
 
   const SearchState({
-    this.query           = '',
+    this.query = '',
     this.filterType,
-    this.userResults     = const [],
-    this.projectResults  = const [],
+    this.userResults = const [],
+    this.projectResults = const [],
     this.investorResults = const [],
-    this.isLoading       = false,
+    this.isLoading = false,
     this.error,
-    this.hasSearched     = false,
+    this.hasSearched = false,
   });
 
   SearchState copyWith({
-    String?        query,
-    String?        filterType,
-    List<User>?    userResults,
+    String? query,
+    Object? filterType = _unset,
+    List<User>? userResults,
     List<Project>? projectResults,
     List<Investor>? investorResults,
-    bool?          isLoading,
-    String?        error,
-    bool?          hasSearched,
-  }) => SearchState(
-    query:           query           ?? this.query,
-    filterType:      filterType,
-    userResults:     userResults     ?? this.userResults,
-    projectResults:  projectResults  ?? this.projectResults,
-    investorResults: investorResults ?? this.investorResults,
-    isLoading:       isLoading       ?? this.isLoading,
-    error:           error,
-    hasSearched:     hasSearched     ?? this.hasSearched,
-  );
+    bool? isLoading,
+    Object? error = _unset,
+    bool? hasSearched,
+  }) =>
+      SearchState(
+        query: query ?? this.query,
+        filterType: identical(filterType, _unset)
+            ? this.filterType
+            : filterType as String?,
+        userResults: userResults ?? this.userResults,
+        projectResults: projectResults ?? this.projectResults,
+        investorResults: investorResults ?? this.investorResults,
+        isLoading: isLoading ?? this.isLoading,
+        error: identical(error, _unset) ? this.error : error as String?,
+        hasSearched: hasSearched ?? this.hasSearched,
+      );
 
-  int  get totalResults =>
+  int get totalResults =>
       userResults.length + projectResults.length + investorResults.length;
   bool get hasResults => totalResults > 0;
 }
@@ -55,21 +60,21 @@ class SearchNotifier extends StateNotifier<SearchState> {
   final SupabaseService _service;
   SearchNotifier(this._service) : super(const SearchState());
 
-  void setQuery(String query)         => state = state.copyWith(query: query);
-  void setFilterType(String? type)    => state = state.copyWith(filterType: type);
+  void setQuery(String query) => state = state.copyWith(query: query);
+  void setFilterType(String? type) => state = state.copyWith(filterType: type);
 
   Future<void> search() async {
     if (state.query.isEmpty) return;
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final results = await _service.search(
-          query: state.query, type: state.filterType);
+      final results =
+          await _service.search(query: state.query, type: state.filterType);
       state = state.copyWith(
-        userResults:     results.users,
-        projectResults:  results.projects,
+        userResults: results.users,
+        projectResults: results.projects,
         investorResults: results.investors,
-        isLoading:       false,
-        hasSearched:     true,
+        isLoading: false,
+        hasSearched: true,
       );
     } catch (e) {
       state = state.copyWith(
@@ -78,7 +83,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
   }
 
   void clearSearch() => state = const SearchState();
-  void clearError()  => state = state.copyWith(error: null);
+  void clearError() => state = state.copyWith(error: null);
 }
 
 final searchProvider =

@@ -159,7 +159,7 @@ class _BrowseInvestorsScreenState extends ConsumerState<BrowseInvestorsScreen> {
                         return InvestorCard(
                           investor: investor,
                           showLike: true,
-                          onTap: () => context.go('/investor/${investor.id}'),
+                          onTap: () => context.push('/investor/${investor.id}'),
                           onLike: () {
                             ref.read(likesProvider.notifier).toggleLike(
                                   investor.id,

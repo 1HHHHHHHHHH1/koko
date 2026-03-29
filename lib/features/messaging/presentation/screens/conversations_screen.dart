@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/services/notification_service.dart';
 import '../../../../providers/messaging_provider.dart';
 
 class ConversationsScreen extends ConsumerStatefulWidget {
@@ -49,97 +50,121 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
                       final otherUser = conversation.otherParticipant;
                       final lastMessage = conversation.lastMessage;
 
-                      return ListTile(
-                        leading: CircleAvatar(
-                          radius: 28,
-                          backgroundColor:
-                              theme.colorScheme.primary.withOpacity(0.1),
-                          backgroundImage: otherUser?.avatar != null
-                              ? NetworkImage(otherUser!.avatar!)
-                              : null,
-                          child: otherUser?.avatar == null
-                              ? Text(
-                                  otherUser?.name.isNotEmpty == true
-                                      ? otherUser!.name[0].toUpperCase()
-                                      : '?',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: theme.colorScheme.primary,
-                                  ),
-                                )
-                              : null,
+                      return Dismissible(
+                        key: ValueKey(conversation.id),
+                        direction: DismissDirection.endToStart,
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          color: Colors.red,
+                          child: const Icon(
+                            Icons.delete_outline,
+                            color: Colors.white,
+                          ),
                         ),
-                        title: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                otherUser?.name ?? 'Unknown',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: conversation.unreadCount > 0
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (lastMessage != null)
-                              Text(
-                                _formatTime(lastMessage.createdAt),
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: conversation.unreadCount > 0
-                                      ? theme.colorScheme.primary
-                                      : Colors.grey[500],
-                                ),
-                              ),
-                          ],
-                        ),
-                        subtitle: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                lastMessage?.content ?? 'No messages yet',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: conversation.unreadCount > 0
-                                      ? Colors.black87
-                                      : Colors.grey[600],
-                                  fontWeight: conversation.unreadCount > 0
-                                      ? FontWeight.w500
-                                      : FontWeight.normal,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (conversation.unreadCount > 0) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.primary,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
+                        confirmDismiss: (_) => _confirmDeleteConversation(
+                            context, otherUser?.name),
+                        onDismissed: (_) async {
+                          ref
+                              .read(notificationServiceProvider)
+                              .markConversationRead(conversation.id);
+                          await ref
+                              .read(messagingProvider.notifier)
+                              .deleteConversation(conversation.id);
+                        },
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            radius: 28,
+                            backgroundColor:
+                                theme.colorScheme.primary.withOpacity(0.1),
+                            backgroundImage: otherUser?.avatar != null
+                                ? NetworkImage(otherUser!.avatar!)
+                                : null,
+                            child: otherUser?.avatar == null
+                                ? Text(
+                                    otherUser?.name.isNotEmpty == true
+                                        ? otherUser!.name[0].toUpperCase()
+                                        : '?',
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                          title: Row(
+                            children: [
+                              Expanded(
                                 child: Text(
-                                  '${conversation.unreadCount}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
+                                  otherUser?.name ?? 'Unknown',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: conversation.unreadCount > 0
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              if (lastMessage != null)
+                                Text(
+                                  _formatTime(lastMessage.createdAt),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: conversation.unreadCount > 0
+                                        ? theme.colorScheme.primary
+                                        : Colors.grey[500],
+                                  ),
+                                ),
                             ],
-                          ],
+                          ),
+                          subtitle: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  lastMessage?.content ?? 'No messages yet',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: conversation.unreadCount > 0
+                                        ? Colors.black87
+                                        : Colors.grey[600],
+                                    fontWeight: conversation.unreadCount > 0
+                                        ? FontWeight.w500
+                                        : FontWeight.normal,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (conversation.unreadCount > 0) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.primary,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    '${conversation.unreadCount}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          onTap: () =>
+                              context.push('/messages/${conversation.id}'),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        onTap: () => context.go('/messages/${conversation.id}'),
                       );
                     },
                   ),
@@ -148,18 +173,47 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
   }
 
   String _formatTime(DateTime dateTime) {
+    final localDateTime = dateTime.toLocal();
     final now = DateTime.now();
-    final diff = now.difference(dateTime);
+    final diff = now.difference(localDateTime);
 
     if (diff.inDays == 0) {
-      return DateFormat('HH:mm').format(dateTime);
+      return DateFormat('HH:mm').format(localDateTime);
     } else if (diff.inDays == 1) {
       return 'Yesterday';
     } else if (diff.inDays < 7) {
-      return DateFormat('EEEE').format(dateTime);
+      return DateFormat('EEEE').format(localDateTime);
     } else {
-      return DateFormat('dd/MM').format(dateTime);
+      return DateFormat('dd/MM').format(localDateTime);
     }
+  }
+
+  Future<bool?> _confirmDeleteConversation(
+    BuildContext context,
+    String? name,
+  ) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete conversation'),
+          content: Text(
+            'This will remove the conversation from your messages only${name != null ? ' with $name' : ''}.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 

@@ -10,20 +10,11 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # ✅ Supabase — إصدار محدد بدقة، pub يختار الإصدارات الفرعية تلقائياً
   supabase_flutter: 2.5.6
-
-  # State Management
   flutter_riverpod: ^2.5.1
-
-  # Navigation
   go_router: ^14.2.0
-
-
-  # Models
   equatable: ^2.0.5
-
-  # UI
+  http: ^1.2.0
   cached_network_image: ^3.3.1
   flutter_rating_bar: ^4.0.1
   image_picker: ^1.1.2

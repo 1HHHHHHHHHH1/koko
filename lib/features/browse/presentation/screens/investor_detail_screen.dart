@@ -6,6 +6,7 @@ import '../../../../providers/investor_provider.dart';
 import '../../../../providers/likes_provider.dart';
 import '../../../../providers/ratings_provider.dart';
 import '../../../../providers/messaging_provider.dart';
+import 'reviews_screen.dart';
 import '../../../../widgets/common/rating_display.dart';
 
 class InvestorDetailScreen extends ConsumerStatefulWidget {
@@ -138,8 +139,26 @@ class _InvestorDetailScreenState extends ConsumerState<InvestorDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Rating Summary
-                  if (ratingSummary != null)
+                  if (ratingSummary != null) ...[
                     RatingDisplay(summary: ratingSummary),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => ReviewsScreen(
+                                targetId: widget.investorId,
+                                title: '${investor.name} Reviews',
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.rate_review_outlined),
+                        label: const Text('View Reviews'),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
 
                   // Action Buttons

@@ -6,6 +6,7 @@ import '/providers/auth_provider.dart';
 import '/providers/project_provider.dart';
 import '/providers/match_provider.dart';
 import '/widgets/common/app_drawer.dart';
+import '/core/services/notification_service.dart';
 import '/widgets/cards/match_card.dart';
 import '/widgets/cards/project_card.dart';
 
@@ -38,14 +39,19 @@ class _EntrepreneurDashboardScreenState
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
+
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
-            onPressed: () => context.go(Routes.search),
+            onPressed: () => context.push(Routes.search),
           ),
           IconButton(
             icon: const Icon(Icons.message_outlined),
-            onPressed: () => context.go(Routes.conversations),
+            onPressed: () => context.push(Routes.conversations),
+          ),
+          // ✅ جرس الإشعارات
+          NotificationBell(
+            onTap: () => context.push(Routes.conversations),
           ),
           // ✅ زر البروفايل
           Consumer(builder: (context, ref, _) {
@@ -54,7 +60,7 @@ class _EntrepreneurDashboardScreenState
               tooltip: 'My Profile',
               onPressed: () {
                 final u = ref.read(currentUserProvider);
-                if (u != null) context.go('/profile/${u.id}');
+                if (u != null) context.push('/profile/${u.id}');
               },
             );
           }),
@@ -129,7 +135,7 @@ class _EntrepreneurDashboardScreenState
                       icon: Icons.add_business,
                       title: 'Create Project',
                       color: theme.colorScheme.primary,
-                      onTap: () => context.go(Routes.createProject),
+                      onTap: () => context.push(Routes.createProject),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -138,7 +144,7 @@ class _EntrepreneurDashboardScreenState
                       icon: Icons.search,
                       title: 'Find Investors',
                       color: theme.colorScheme.secondary,
-                      onTap: () => context.go(Routes.browseInvestors),
+                      onTap: () => context.push(Routes.browseInvestors),
                     ),
                   ),
                 ],
@@ -161,7 +167,7 @@ class _EntrepreneurDashboardScreenState
                   title: 'No Projects Yet',
                   subtitle: 'Create your first project to get started',
                   actionLabel: 'Create Project',
-                  onAction: () => context.go(Routes.createProject),
+                  onAction: () => context.push(Routes.createProject),
                 )
               else
                 SizedBox(
@@ -176,7 +182,7 @@ class _EntrepreneurDashboardScreenState
                         width: 280,
                         child: ProjectCard(
                           project: project,
-                          onTap: () => context.go('/project/${project.id}'),
+                          onTap: () => context.push('/project/${project.id}'),
                         ),
                       );
                     },
@@ -189,7 +195,7 @@ class _EntrepreneurDashboardScreenState
                 title: 'Matched Investors',
                 subtitle: 'Based on your project criteria',
                 onViewAll: matchesState.matchedInvestors.isNotEmpty
-                    ? () => context.go(Routes.browseInvestors)
+                    ? () => context.push(Routes.browseInvestors)
                     : null,
               ),
               const SizedBox(height: 12),
@@ -201,7 +207,7 @@ class _EntrepreneurDashboardScreenState
                   title: 'No Matches Yet',
                   subtitle: 'Create a project to find matching investors',
                   actionLabel: 'Browse Investors',
-                  onAction: () => context.go(Routes.browseInvestors),
+                  onAction: () => context.push(Routes.browseInvestors),
                 )
               else
                 ListView.separated(
@@ -215,9 +221,9 @@ class _EntrepreneurDashboardScreenState
                     final match = matchesState.matchedInvestors[index];
                     return MatchCard(
                       match: match,
-                      onTap: () => context.go('/investor/${match.targetId}'),
+                      onTap: () => context.push('/investor/${match.targetId}'),
                       onMessage: () {
-                        context.go(Routes.conversations);
+                        context.push(Routes.conversations);
                       },
                     );
                   },
@@ -227,7 +233,7 @@ class _EntrepreneurDashboardScreenState
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go(Routes.createProject),
+        onPressed: () => context.push(Routes.createProject),
         icon: const Icon(Icons.add),
         label: const Text('New Project'),
       ),

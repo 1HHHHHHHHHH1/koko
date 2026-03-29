@@ -137,6 +137,8 @@ class ProjectsNotifier extends StateNotifier<ProjectsState> {
       state = state.copyWith(
         myProjects: state.myProjects.where((p) => p.id != id).toList(),
         projects:   state.projects.where((p) => p.id != id).toList(),
+        selectedProject:
+            state.selectedProject?.id == id ? null : state.selectedProject,
         isLoading:  false,
       );
       return true;

@@ -5,40 +5,41 @@ import '../models/investor.dart';
 
 class InvestorsState {
   final List<Investor> investors;
-  final Investor?      selectedInvestor;
+  final Investor? selectedInvestor;
   final InvestmentCriteria? myCriteria;
-  final bool           isLoading;
-  final String?        error;
-  final int            currentPage;
-  final bool           hasMore;
+  final bool isLoading;
+  final String? error;
+  final int currentPage;
+  final bool hasMore;
 
   const InvestorsState({
-    this.investors       = const [],
+    this.investors = const [],
     this.selectedInvestor,
     this.myCriteria,
-    this.isLoading       = false,
+    this.isLoading = false,
     this.error,
-    this.currentPage     = 1,
-    this.hasMore         = true,
+    this.currentPage = 1,
+    this.hasMore = true,
   });
 
   InvestorsState copyWith({
-    List<Investor>?    investors,
-    Investor?          selectedInvestor,
+    List<Investor>? investors,
+    Investor? selectedInvestor,
     InvestmentCriteria? myCriteria,
-    bool?              isLoading,
-    String?            error,
-    int?               currentPage,
-    bool?              hasMore,
-  }) => InvestorsState(
-    investors:        investors        ?? this.investors,
-    selectedInvestor: selectedInvestor ?? this.selectedInvestor,
-    myCriteria:       myCriteria       ?? this.myCriteria,
-    isLoading:        isLoading        ?? this.isLoading,
-    error:            error,
-    currentPage:      currentPage      ?? this.currentPage,
-    hasMore:          hasMore          ?? this.hasMore,
-  );
+    bool? isLoading,
+    String? error,
+    int? currentPage,
+    bool? hasMore,
+  }) =>
+      InvestorsState(
+        investors: investors ?? this.investors,
+        selectedInvestor: selectedInvestor ?? this.selectedInvestor,
+        myCriteria: myCriteria ?? this.myCriteria,
+        isLoading: isLoading ?? this.isLoading,
+        error: error,
+        currentPage: currentPage ?? this.currentPage,
+        hasMore: hasMore ?? this.hasMore,
+      );
 }
 
 class InvestorsNotifier extends StateNotifier<InvestorsState> {
@@ -64,7 +65,7 @@ class InvestorsNotifier extends StateNotifier<InvestorsState> {
   }
 
   Future<void> fetchInvestors({
-    bool    refresh  = false,
+    bool refresh = false,
     String? sort,
     String? industry,
     String? stage,
@@ -74,12 +75,16 @@ class InvestorsNotifier extends StateNotifier<InvestorsState> {
     state = state.copyWith(isLoading: true, error: null, currentPage: page);
     try {
       final list = await _service.getInvestors(
-          page: page, industry: industry, stage: stage);
+        page: page,
+        industry: industry,
+        stage: stage,
+        sort: sort,
+      );
       state = state.copyWith(
-        investors:   refresh ? list : [...state.investors, ...list],
-        isLoading:   false,
+        investors: refresh ? list : [...state.investors, ...list],
+        isLoading: false,
         currentPage: page + 1,
-        hasMore:     list.length >= 20,
+        hasMore: list.length >= 20,
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -116,8 +121,9 @@ class InvestorsNotifier extends StateNotifier<InvestorsState> {
     }
   }
 
-  void clearSelectedInvestor() => state = state.copyWith(selectedInvestor: null);
-  void clearError()             => state = state.copyWith(error: null);
+  void clearSelectedInvestor() =>
+      state = state.copyWith(selectedInvestor: null);
+  void clearError() => state = state.copyWith(error: null);
 }
 
 final investorsProvider =

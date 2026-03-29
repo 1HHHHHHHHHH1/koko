@@ -95,7 +95,8 @@ class _BrowseProjectsScreenState extends ConsumerState<BrowseProjectsScreen> {
                   label: 'Highest Rated',
                   isSelected: _selectedSort == AppConstants.sortHighestRated,
                   onTap: () {
-                    setState(() => _selectedSort = AppConstants.sortHighestRated);
+                    setState(
+                        () => _selectedSort = AppConstants.sortHighestRated);
                     _applyFilters();
                   },
                 ),
@@ -143,34 +144,52 @@ class _BrowseProjectsScreenState extends ConsumerState<BrowseProjectsScreen> {
                             ],
                           ),
                         )
-                  : GridView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.all(16),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        childAspectRatio: 0.85,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                      ),
-                      itemCount: projectsState.projects.length +
-                          (projectsState.hasMore ? 2 : 0),
-                      itemBuilder: (context, index) {
-                        if (index >= projectsState.projects.length) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        final width = constraints.maxWidth;
+                        final crossAxisCount = width >= 1000
+                            ? 3
+                            : width >= 650
+                                ? 2
+                                : 1;
+                        final childAspectRatio = crossAxisCount == 1
+                            ? 1.45
+                            : crossAxisCount == 2
+                                ? 0.92
+                                : 0.9;
 
-                        final project = projectsState.projects[index];
-                        return ProjectCard(
-                          project: project,
-                          showLike: true,
-                          onTap: () => context.go('/project/${project.id}'),
-                          onLike: () {
-                            ref.read(likesProvider.notifier).toggleLike(
-                                  project.id,
-                                  'project',
-                                );
+                        return GridView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.all(16),
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: crossAxisCount,
+                            childAspectRatio: childAspectRatio,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                          ),
+                          itemCount: projectsState.projects.length +
+                              (projectsState.hasMore ? 2 : 0),
+                          itemBuilder: (context, index) {
+                            if (index >= projectsState.projects.length) {
+                              return const Center(
+                                child: CircularProgressIndicator(),
+                              );
+                            }
+
+                            final project = projectsState.projects[index];
+                            return ProjectCard(
+                              project: project,
+                              showLike: true,
+                              onTap: () =>
+                                  context.push('/project/${project.id}'),
+                              onLike: () {
+                                ref.read(likesProvider.notifier).toggleLike(
+                                      project.id,
+                                      'project',
+                                    );
+                              },
+                            );
                           },
                         );
                       },
@@ -267,7 +286,8 @@ class _BrowseProjectsScreenState extends ConsumerState<BrowseProjectsScreen> {
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
-                            children: AppConstants.investmentStages.map((stage) {
+                            children:
+                                AppConstants.investmentStages.map((stage) {
                               final isSelected = _selectedStage == stage;
                               return FilterChip(
                                 label: Text(stage),

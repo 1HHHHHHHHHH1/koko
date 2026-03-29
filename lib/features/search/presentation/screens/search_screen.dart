@@ -40,7 +40,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final searchState = ref.watch(searchProvider);
 
     return Scaffold(
@@ -90,8 +89,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   isSelected: searchState.filterType == null,
                   onTap: () {
                     ref.read(searchProvider.notifier).setFilterType(null);
-                    if (searchState.query.isNotEmpty) {
-                      ref.read(searchProvider.notifier).search();
+                    if (_searchController.text.trim().isNotEmpty) {
+                      _performSearch();
                     }
                   },
                 ),
@@ -104,8 +103,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     ref.read(searchProvider.notifier).setFilterType(
                           AppConstants.searchTypeInvestor,
                         );
-                    if (searchState.query.isNotEmpty) {
-                      ref.read(searchProvider.notifier).search();
+                    if (_searchController.text.trim().isNotEmpty) {
+                      _performSearch();
                     }
                   },
                 ),
@@ -118,8 +117,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     ref.read(searchProvider.notifier).setFilterType(
                           AppConstants.searchTypeEntrepreneur,
                         );
-                    if (searchState.query.isNotEmpty) {
-                      ref.read(searchProvider.notifier).search();
+                    if (_searchController.text.trim().isNotEmpty) {
+                      _performSearch();
                     }
                   },
                 ),
@@ -132,8 +131,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     ref.read(searchProvider.notifier).setFilterType(
                           AppConstants.searchTypeProject,
                         );
-                    if (searchState.query.isNotEmpty) {
-                      ref.read(searchProvider.notifier).search();
+                    if (_searchController.text.trim().isNotEmpty) {
+                      _performSearch();
                     }
                   },
                 ),
@@ -151,9 +150,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         ? _NoResults(query: searchState.query)
                         : _SearchResults(
                             searchState: searchState,
-                            onInvestorTap: (id) => context.go('/investor/$id'),
-                            onProjectTap: (id) => context.go('/project/$id'),
-                            onUserTap: (id) => context.go('/profile/$id'),
+                            onInvestorTap: (id) =>
+                                context.push('/investor/$id'),
+                            onProjectTap: (id) => context.push('/project/$id'),
+                            onUserTap: (id) => context.push('/profile/$id'),
                           ),
           ),
         ],
@@ -322,7 +322,7 @@ class _SearchResults extends StatelessWidget {
         // Users/Entrepreneurs Section
         if (searchState.userResults.isNotEmpty) ...[
           _SectionHeader(
-            title: 'Users',
+            title: 'Entrepreneurs',
             count: searchState.userResults.length,
           ),
           const SizedBox(height: 8),
@@ -346,9 +346,8 @@ class _SearchResults extends StatelessWidget {
                       : null,
                 ),
                 title: Text(user.name),
-                subtitle: Text(user.userType == 'investor'
-                    ? 'Investor'
-                    : 'Entrepreneur'),
+                subtitle: Text(
+                    user.userType == 'investor' ? 'Investor' : 'Entrepreneur'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => onUserTap(user.id),
               ),

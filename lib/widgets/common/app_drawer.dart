@@ -25,7 +25,7 @@ class AppDrawer extends ConsumerWidget {
               onTap: () {
                 Navigator.pop(context);
                 if (user != null) {
-                  context.go('/profile/${user.id}');
+                  context.push('/profile/${user.id}');
                 }
               },
               child: Container(
@@ -144,7 +144,7 @@ class AppDrawer extends ConsumerWidget {
                     title: 'My Profile',
                     onTap: () {
                       Navigator.pop(context);
-                      if (user != null) context.go('/profile/${user.id}');
+                      if (user != null) context.push('/profile/${user.id}');
                     },
                   ),
 
@@ -153,7 +153,7 @@ class AppDrawer extends ConsumerWidget {
                     title: 'Search',
                     onTap: () {
                       Navigator.pop(context);
-                      context.go(Routes.search);
+                      context.push(Routes.search);
                     },
                   ),
                   const Divider(),
@@ -163,7 +163,7 @@ class AppDrawer extends ConsumerWidget {
                     title: 'Browse Projects',
                     onTap: () {
                       Navigator.pop(context);
-                      context.go(Routes.browseProjects);
+                      context.push(Routes.browseProjects);
                     },
                   ),
                   _DrawerItem(
@@ -171,7 +171,7 @@ class AppDrawer extends ConsumerWidget {
                     title: 'Browse Investors',
                     onTap: () {
                       Navigator.pop(context);
-                      context.go(Routes.browseInvestors);
+                      context.push(Routes.browseInvestors);
                     },
                   ),
                   const Divider(),
@@ -181,7 +181,7 @@ class AppDrawer extends ConsumerWidget {
                     title: 'My Likes',
                     onTap: () {
                       Navigator.pop(context);
-                      context.go(Routes.myLikes);
+                      context.push(Routes.myLikes);
                     },
                   ),
                   _DrawerItem(
@@ -189,7 +189,7 @@ class AppDrawer extends ConsumerWidget {
                     title: 'Messages',
                     onTap: () {
                       Navigator.pop(context);
-                      context.go(Routes.conversations);
+                      context.push(Routes.conversations);
                     },
                   ),
 
@@ -200,7 +200,7 @@ class AppDrawer extends ConsumerWidget {
                       title: 'Create Project',
                       onTap: () {
                         Navigator.pop(context);
-                        context.go(Routes.createProject);
+                        context.push(Routes.createProject);
                       },
                     ),
                   ],
@@ -212,7 +212,7 @@ class AppDrawer extends ConsumerWidget {
                       title: 'Investment Criteria',
                       onTap: () {
                         Navigator.pop(context);
-                        context.go(Routes.investmentCriteria);
+                        context.push(Routes.investmentCriteria);
                       },
                     ),
                   ],

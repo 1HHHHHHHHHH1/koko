@@ -1,16 +1,13 @@
-// ✅ messaging_provider.dart — مُكتمل مع Realtime + isSending + getMessages
 import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../core/supabase/supabase_service.dart';
 import '../models/message.dart';
 
-// ────────────────────────────────────────────────────────────
-// State
-// ────────────────────────────────────────────────────────────
-
 class MessagingState {
   final List<Conversation> conversations;
-  final Map<String, List<Message>> messagesMap; // conversationId → messages
+  final Map<String, List<Message>> messagesMap;
   final bool isLoading;
   final bool isSending;
   final String? activeConversationId;
@@ -45,26 +42,49 @@ class MessagingState {
         error: error,
       );
 
-  /// الرسائل الخاصة بمحادثة معيّنة
   List<Message> getMessages(String conversationId) =>
       messagesMap[conversationId] ?? [];
 }
 
-// ────────────────────────────────────────────────────────────
-// Notifier
-// ────────────────────────────────────────────────────────────
 class MessagingNotifier extends StateNotifier<MessagingState> {
   final SupabaseService _service;
   StreamSubscription<List<Message>>? _realtimeSub;
+  final Set<String> _hiddenConversationIds = <String>{};
+  String? _hiddenConversationOwnerId;
 
   MessagingNotifier(this._service) : super(const MessagingState());
 
-  // ---- جلب المحادثات ----
+  void _syncHiddenConversationOwner() {
+    final currentUserId = _service.client.auth.currentUser?.id;
+    if (_hiddenConversationOwnerId == currentUserId) return;
+    _hiddenConversationOwnerId = currentUserId;
+    _hiddenConversationIds.clear();
+  }
+
+  List<Conversation> _visibleConversations(List<Conversation> conversations) {
+    _syncHiddenConversationOwner();
+    if (_hiddenConversationIds.isEmpty) return conversations;
+    return conversations
+        .where((conversation) => !_hiddenConversationIds.contains(conversation.id))
+        .toList();
+  }
+
+  void _hideConversationLocally(String conversationId) {
+    _syncHiddenConversationOwner();
+    _hiddenConversationIds.add(conversationId);
+  }
+
+  void _unhideConversationLocally(String conversationId) {
+    _syncHiddenConversationOwner();
+    _hiddenConversationIds.remove(conversationId);
+  }
+
   Future<void> fetchConversations() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final convs = await _service.getConversations();
-      state = state.copyWith(conversations: convs, isLoading: false);
+      final conversations =
+          _visibleConversations(await _service.getConversations());
+      state = state.copyWith(conversations: conversations, isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
@@ -72,14 +92,14 @@ class MessagingNotifier extends StateNotifier<MessagingState> {
 
   Future<void> _refreshConversationsSilently() async {
     try {
-      final convs = await _service.getConversations();
-      state = state.copyWith(conversations: convs);
+      final conversations =
+          _visibleConversations(await _service.getConversations());
+      state = state.copyWith(conversations: conversations);
     } catch (_) {
       // Keep the current state when a background refresh fails.
     }
   }
 
-  // ---- تحديد المحادثة النشطة + الاشتراك في Realtime ----
   Future<void> setActiveConversation(String? conversationId) async {
     await _realtimeSub?.cancel();
     _realtimeSub = null;
@@ -91,70 +111,164 @@ class MessagingNotifier extends StateNotifier<MessagingState> {
 
     state = state.copyWith(activeConversationId: conversationId);
 
-    // ✅ Realtime stream
     _realtimeSub =
         _service.messagesStream(conversationId).listen((updatedMessages) {
       final newMap = Map<String, List<Message>>.from(state.messagesMap);
-      newMap[conversationId] = updatedMessages;
+      newMap[conversationId] = _sortMessages(updatedMessages);
       state = state.copyWith(messagesMap: newMap);
+
+      final currentUserId = _service.client.auth.currentUser?.id;
+      final hasUnreadIncoming = updatedMessages.any(
+        (message) => message.senderId != currentUserId && !message.isRead,
+      );
+      if (hasUnreadIncoming) {
+        unawaited(markConversationAsRead(conversationId));
+      }
     });
   }
 
-  // ---- جلب الرسائل (أوّل مرة) ----
   Future<void> fetchMessages(String conversationId) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final msgs = await _service.getMessages(conversationId);
+      final messages = _sortMessages(await _service.getMessages(conversationId));
       final newMap = Map<String, List<Message>>.from(state.messagesMap);
-      newMap[conversationId] = msgs;
+      newMap[conversationId] = messages;
       state = state.copyWith(messagesMap: newMap, isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
-  // ---- إرسال رسالة ----
-  Future<void> sendMessage(
-    String conversationId,
-    String content,
-  ) async {
+  Future<void> markConversationAsRead(String conversationId) async {
+    try {
+      await _service.markConversationMessagesAsRead(conversationId);
+
+      final currentUserId = _service.client.auth.currentUser?.id;
+      final updatedMessagesMap =
+          Map<String, List<Message>>.from(state.messagesMap);
+      final existingMessages = updatedMessagesMap[conversationId];
+      if (existingMessages != null) {
+        updatedMessagesMap[conversationId] = existingMessages
+            .map(
+              (message) => message.senderId == currentUserId
+                  ? message
+                  : message.copyWith(isRead: true),
+            )
+            .toList();
+      }
+
+      final updatedConversations = state.conversations
+          .map(
+            (conversation) => conversation.id == conversationId
+                ? Conversation(
+                    id: conversation.id,
+                    participantIds: conversation.participantIds,
+                    otherParticipant: conversation.otherParticipant,
+                    lastMessage: conversation.lastMessage,
+                    unreadCount: 0,
+                    createdAt: conversation.createdAt,
+                    updatedAt: conversation.updatedAt,
+                  )
+                : conversation,
+          )
+          .toList();
+
+      state = state.copyWith(
+        messagesMap: updatedMessagesMap,
+        conversations: updatedConversations,
+      );
+
+      await _refreshConversationsSilently();
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
+  Future<void> sendMessage(String conversationId, String content) async {
     if (content.trim().isEmpty) return;
     state = state.copyWith(isSending: true, error: null);
     try {
       await _service.sendMessage(
-          conversationId: conversationId, content: content);
+        conversationId: conversationId,
+        content: content,
+      );
       await _refreshConversationsSilently();
       state = state.copyWith(isSending: false);
-      // الرسالة ستظهر تلقائياً عبر Realtime ↑
     } catch (e) {
       state = state.copyWith(isSending: false, error: e.toString());
     }
   }
 
-  // ---- إنشاء محادثة جديدة ----
   Future<String?> createConversation(String recipientId) async {
     try {
-      return await _service.getOrCreateConversation(recipientId);
+      final conversationId = await _service.getOrCreateConversation(recipientId);
+      _unhideConversationLocally(conversationId);
+      unawaited(_refreshConversationsSilently());
+      return conversationId;
     } catch (e) {
       state = state.copyWith(error: e.toString());
       return null;
     }
   }
 
-  // ✅ إنشاء أو جلب محادثة موجودة مع مستخدم معين
   Future<String> getOrCreateConversation(String recipientId) async {
     try {
-      final convId = await _service.getOrCreateConversation(recipientId);
-      // تحديث قائمة المحادثات
-      await fetchConversations();
-      return convId;
+      for (final conversation in state.conversations) {
+        if (conversation.otherParticipant?.id == recipientId) {
+          return conversation.id;
+        }
+      }
+
+      final conversationId = await _service.getOrCreateConversation(recipientId);
+      _unhideConversationLocally(conversationId);
+      unawaited(_refreshConversationsSilently());
+      return conversationId;
     } catch (e) {
       state = state.copyWith(error: e.toString());
       rethrow;
     }
   }
 
+  Future<void> deleteConversation(String conversationId) async {
+    try {
+      if (state.activeConversationId == conversationId) {
+        await setActiveConversation(null);
+      }
+
+      _hideConversationLocally(conversationId);
+      final updatedMessagesMap = Map<String, List<Message>>.from(state.messagesMap)
+        ..remove(conversationId);
+      final updatedConversations = state.conversations
+          .where((conversation) => conversation.id != conversationId)
+          .toList();
+
+      state = state.copyWith(
+        messagesMap: updatedMessagesMap,
+        conversations: updatedConversations,
+      );
+
+      try {
+        await _service.deleteConversationForCurrentUser(conversationId);
+      } catch (_) {
+        // Keep the conversation hidden locally even if the server keeps it.
+      }
+      await _refreshConversationsSilently();
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
   void clearError() => state = state.copyWith(error: null);
+
+  List<Message> _sortMessages(List<Message> messages) {
+    final sorted = [...messages];
+    sorted.sort((a, b) {
+      final dateComparison = a.createdAt.compareTo(b.createdAt);
+      if (dateComparison != 0) return dateComparison;
+      return a.id.compareTo(b.id);
+    });
+    return sorted;
+  }
 
   @override
   void dispose() {
@@ -163,9 +277,6 @@ class MessagingNotifier extends StateNotifier<MessagingState> {
   }
 }
 
-// ────────────────────────────────────────────────────────────
-// Provider
-// ────────────────────────────────────────────────────────────
 final messagingProvider =
     StateNotifierProvider<MessagingNotifier, MessagingState>((ref) {
   final service = ref.read(supabaseServiceProvider);

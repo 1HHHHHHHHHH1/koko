@@ -42,7 +42,9 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
   }
 
   void _loadProject() async {
-    await ref.read(projectsProvider.notifier).fetchProjectById(widget.projectId!);
+    await ref
+        .read(projectsProvider.notifier)
+        .fetchProjectById(widget.projectId!);
     final project = ref.read(projectsProvider).selectedProject;
     if (project != null) {
       _titleController.text = project.title;
@@ -87,6 +89,11 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
 
   Future<void> _handleSubmit() async {
     if (_formKey.currentState!.validate()) {
+      if (!isEditing) {
+        final acceptedTerms = await _showProjectDisclaimerDialog();
+        if (!acceptedTerms || !mounted) return;
+      }
+
       final user = ref.read(currentUserProvider);
       final project = Project(
         id: widget.projectId ?? '',
@@ -98,10 +105,12 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
         industry: _selectedIndustry,
         stage: _selectedStage,
         fundingGoal: double.parse(_fundingGoalController.text.trim()),
-        website:
-            _websiteController.text.trim().isEmpty ? null : _websiteController.text.trim(),
-        videoUrl:
-            _videoUrlController.text.trim().isEmpty ? null : _videoUrlController.text.trim(),
+        website: _websiteController.text.trim().isEmpty
+            ? null
+            : _websiteController.text.trim(),
+        videoUrl: _videoUrlController.text.trim().isEmpty
+            ? null
+            : _videoUrlController.text.trim(),
         tags: _tags.isEmpty ? null : _tags,
       );
 
@@ -137,6 +146,82 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
         );
       }
     }
+  }
+
+  Future<bool> _showProjectDisclaimerDialog() async {
+    var accepted = false;
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Project Publishing Terms'),
+              content: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Please review the following before publishing your project:',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      '1. You are fully responsible for the project content you publish and for the accuracy of the information you provide.',
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      '2. The platform is not responsible for protecting your idea or for any unauthorized use of it by another party.',
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      '3. We strongly recommend documenting or legally protecting your idea or project before publishing it, especially if it contains sensitive or protectable elements.',
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      '4. By publishing this project, you confirm that you understand and accept these terms.',
+                    ),
+                    const SizedBox(height: 16),
+                    CheckboxListTile(
+                      value: accepted,
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: const Text(
+                        'I agree to these terms and accept full responsibility for publishing this project.',
+                      ),
+                      onChanged: (value) {
+                        setDialogState(() {
+                          accepted = value ?? false;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: accepted
+                      ? () => Navigator.of(dialogContext).pop(true)
+                      : null,
+                  child: const Text('I Agree'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    return result == true;
   }
 
   @override
@@ -356,3 +441,5 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
     );
   }
 }
+
+

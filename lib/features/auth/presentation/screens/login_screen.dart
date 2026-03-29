@@ -47,7 +47,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final error = ref.read(authProvider).error;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(error ?? 'فشل تسجيل الدخول'),
+          content: Text(error ?? 'Login failed'),
           backgroundColor: Colors.red,
         ),
       );
@@ -90,7 +90,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center),
                 const SizedBox(height: 8),
-                Text('Sign in to continue to VentureBridge',
+                Text('Sign in to continue to SharkSpace',
                     style: theme.textTheme.bodyLarge
                         ?.copyWith(color: Colors.grey[600]),
                     textAlign: TextAlign.center),

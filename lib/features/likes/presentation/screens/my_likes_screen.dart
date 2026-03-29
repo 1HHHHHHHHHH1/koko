@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../../providers/likes_provider.dart';
 
 class MyLikesScreen extends ConsumerStatefulWidget {
@@ -31,7 +32,6 @@ class _MyLikesScreenState extends ConsumerState<MyLikesScreen>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final likesState = ref.watch(likesProvider);
 
     final investorLikes =
@@ -63,8 +63,9 @@ class _MyLikesScreenState extends ConsumerState<MyLikesScreen>
                   likes: investorLikes,
                   emptyIcon: Icons.people_outline,
                   emptyTitle: 'No liked investors',
-                  emptySubtitle: 'Browse and like investors you\'re interested in',
-                  onTap: (id) => context.go('/investor/$id'),
+                  emptySubtitle:
+                      'Browse and like investors you\'re interested in',
+                  onTap: (id) => context.push('/investor/$id'),
                   onUnlike: (id) {
                     ref.read(likesProvider.notifier).toggleLike(id, 'investor');
                   },
@@ -75,8 +76,9 @@ class _MyLikesScreenState extends ConsumerState<MyLikesScreen>
                   likes: projectLikes,
                   emptyIcon: Icons.business_center_outlined,
                   emptyTitle: 'No liked projects',
-                  emptySubtitle: 'Browse and like projects you\'re interested in',
-                  onTap: (id) => context.go('/project/$id'),
+                  emptySubtitle:
+                      'Browse and like projects you\'re interested in',
+                  onTap: (id) => context.push('/project/$id'),
                   onUnlike: (id) {
                     ref.read(likesProvider.notifier).toggleLike(id, 'project');
                   },
@@ -89,9 +91,11 @@ class _MyLikesScreenState extends ConsumerState<MyLikesScreen>
                   emptyTitle: 'No liked entrepreneurs',
                   emptySubtitle:
                       'Browse and like entrepreneurs you\'re interested in',
-                  onTap: (id) => context.go('/profile/$id'),
+                  onTap: (id) => context.push('/profile/$id'),
                   onUnlike: (id) {
-                    ref.read(likesProvider.notifier).toggleLike(id, 'entrepreneur');
+                    ref
+                        .read(likesProvider.notifier)
+                        .toggleLike(id, 'entrepreneur');
                   },
                 ),
               ],
@@ -173,8 +177,10 @@ class _LikesList extends StatelessWidget {
                   color: theme.colorScheme.primary,
                 ),
               ),
-              title: Text('${like.targetType.toString().toUpperCase()}'),
-              subtitle: Text('ID: ${like.targetId}'),
+              title: Text(_labelForType(like.targetType)),
+              subtitle: Text(
+                'Saved on ${DateFormat('dd/MM/yyyy').format(like.createdAt.toLocal())}',
+              ),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -203,6 +209,19 @@ class _LikesList extends StatelessWidget {
         return Icons.lightbulb;
       default:
         return Icons.favorite;
+    }
+  }
+
+  String _labelForType(String type) {
+    switch (type) {
+      case 'investor':
+        return 'Investor';
+      case 'project':
+        return 'Project';
+      case 'entrepreneur':
+        return 'Entrepreneur';
+      default:
+        return 'Liked item';
     }
   }
 }

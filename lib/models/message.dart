@@ -1,6 +1,11 @@
 import 'package:equatable/equatable.dart';
 import 'user.dart';
 
+DateTime? _parseDateTime(dynamic value) {
+  if (value == null) return null;
+  return DateTime.tryParse(value.toString())?.toLocal();
+}
+
 class Message extends Equatable {
   final String id;
   final String conversationId;
@@ -21,16 +26,12 @@ class Message extends Equatable {
   factory Message.fromJson(Map<String, dynamic> json) {
     return Message(
       id: json['id'] ?? json['_id'] ?? '',
-      conversationId:
-          json['conversation_id'] ?? json['conversationId'] ?? '',
+      conversationId: json['conversation_id'] ?? json['conversationId'] ?? '',
       senderId: json['sender_id'] ?? json['senderId'] ?? '',
       content: json['content'] ?? '',
       isRead: json['is_read'] ?? json['isRead'] ?? false,
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'])
-          : json['createdAt'] != null
-              ? DateTime.parse(json['createdAt'])
-              : DateTime.now(),
+      createdAt: _parseDateTime(json['created_at'] ?? json['createdAt']) ??
+          DateTime.now().toLocal(),
     );
   }
 
@@ -111,18 +112,9 @@ class Conversation extends Equatable {
           : json['lastMessage'] != null
               ? Message.fromJson(json['lastMessage'])
               : null,
-      unreadCount:
-          json['unread_count'] ?? json['unreadCount'] ?? 0,
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'])
-          : json['createdAt'] != null
-              ? DateTime.parse(json['createdAt'])
-              : null,
-      updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'])
-          : json['updatedAt'] != null
-              ? DateTime.parse(json['updatedAt'])
-              : null,
+      unreadCount: json['unread_count'] ?? json['unreadCount'] ?? 0,
+      createdAt: _parseDateTime(json['created_at'] ?? json['createdAt']),
+      updatedAt: _parseDateTime(json['updated_at'] ?? json['updatedAt']),
     );
   }
 

@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import '../../../../models/project.dart';
 import '../../../../providers/project_provider.dart';
 import '../../../../providers/likes_provider.dart';
 import '../../../../providers/ratings_provider.dart';
 import '../../../../providers/messaging_provider.dart';
+import '../../../../providers/auth_provider.dart';
+import 'reviews_screen.dart';
 import '../../../../widgets/common/rating_display.dart';
 
 class ProjectDetailScreen extends ConsumerStatefulWidget {
@@ -35,6 +38,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     final project = projectsState.selectedProject;
     final ratingSummary = ref.watch(ratingSummaryProvider(widget.projectId));
     final isLiked = ref.watch(isLikedProvider(widget.projectId));
+    final currentUser = ref.watch(currentUserProvider);
 
     if (projectsState.isLoading && project == null) {
       return Scaffold(
@@ -49,6 +53,8 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
         body: const Center(child: Text('Project not found')),
       );
     }
+
+    final isOwner = currentUser?.id == project.ownerId;
 
     return Scaffold(
       body: CustomScrollView(
@@ -132,17 +138,50 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
               ),
             ),
             actions: [
-              IconButton(
-                icon: Icon(
-                  isLiked ? Icons.favorite : Icons.favorite_outline,
-                  color: isLiked ? Colors.red : Colors.white,
+              if (isOwner)
+                PopupMenuButton<_ProjectOwnerAction>(
+                  icon: const Icon(Icons.more_vert, color: Colors.white),
+                  onSelected: (action) async {
+                    if (action == _ProjectOwnerAction.edit) {
+                      await _handleEditProject(project.id);
+                    } else if (action == _ProjectOwnerAction.delete) {
+                      await _handleDeleteProject(project);
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(
+                      value: _ProjectOwnerAction.edit,
+                      child: ListTile(
+                        leading: Icon(Icons.edit_outlined),
+                        title: Text('Edit Project'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: _ProjectOwnerAction.delete,
+                      child: ListTile(
+                        leading: Icon(Icons.delete_outline, color: Colors.red),
+                        title: Text(
+                          'Delete Project',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ],
+                )
+              else
+                IconButton(
+                  icon: Icon(
+                    isLiked ? Icons.favorite : Icons.favorite_outline,
+                    color: isLiked ? Colors.red : Colors.white,
+                  ),
+                  onPressed: () {
+                    ref
+                        .read(likesProvider.notifier)
+                        .toggleLike(project.id, 'project');
+                  },
                 ),
-                onPressed: () {
-                  ref
-                      .read(likesProvider.notifier)
-                      .toggleLike(project.id, 'project');
-                },
-              ),
             ],
           ),
 
@@ -233,24 +272,38 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                     children: [
                       Expanded(
                         child: FilledButton.icon(
-                          onPressed: () async {
-                            final convId = await ref
-                                .read(messagingProvider.notifier)
-                                .getOrCreateConversation(project.ownerId);
-                            if (context.mounted) {
-                              context.push('/messages/$convId');
-                            }
-                          },
-                          icon: const Icon(Icons.message),
-                          label: const Text('Contact'),
+                          onPressed: isOwner
+                              ? () => _handleEditProject(project.id)
+                              : () async {
+                                  final convId = await ref
+                                      .read(messagingProvider.notifier)
+                                      .getOrCreateConversation(project.ownerId);
+                                  if (context.mounted) {
+                                    context.push('/messages/$convId');
+                                  }
+                                },
+                          icon: Icon(
+                            isOwner ? Icons.edit_outlined : Icons.message,
+                          ),
+                          label: Text(isOwner ? 'Edit Project' : 'Contact'),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () => _showRatingDialog(context),
-                          icon: const Icon(Icons.star),
-                          label: const Text('Rate'),
+                          onPressed: isOwner
+                              ? () => _handleDeleteProject(project)
+                              : () => _showRatingDialog(context),
+                          style: isOwner
+                              ? OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.red,
+                                  side: const BorderSide(color: Colors.red),
+                                )
+                              : null,
+                          icon: Icon(
+                            isOwner ? Icons.delete_outline : Icons.star,
+                          ),
+                          label: Text(isOwner ? 'Delete Project' : 'Rate'),
                         ),
                       ),
                     ],
@@ -348,12 +401,85 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                     _SectionTitle(title: 'Ratings'),
                     const SizedBox(height: 8),
                     RatingDisplay(summary: ratingSummary),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => ReviewsScreen(
+                                targetId: widget.projectId,
+                                title: '${project.title} Reviews',
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.rate_review_outlined),
+                        label: const Text('View Reviews'),
+                      ),
+                    ),
                   ],
                 ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _handleEditProject(String projectId) async {
+    await context.push('/entrepreneur/project/$projectId/edit');
+    if (!mounted) return;
+    await ref.read(projectsProvider.notifier).fetchProjectById(projectId);
+  }
+
+  Future<void> _handleDeleteProject(Project project) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Delete Project'),
+          content: Text(
+            'Are you sure you want to delete "${project.title}"? This action cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final success =
+        await ref.read(projectsProvider.notifier).deleteProject(project.id);
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Project deleted successfully.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      context.pop();
+      return;
+    }
+
+    final error = ref.read(projectsProvider).error;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(error ?? 'Failed to delete project'),
+        backgroundColor: Colors.red,
       ),
     );
   }
@@ -430,6 +556,11 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
       },
     );
   }
+}
+
+enum _ProjectOwnerAction {
+  edit,
+  delete,
 }
 
 class _SectionTitle extends StatelessWidget {

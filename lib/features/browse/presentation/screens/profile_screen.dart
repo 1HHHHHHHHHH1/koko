@@ -8,6 +8,7 @@ import '../../../../providers/auth_provider.dart';
 import '../../../../providers/likes_provider.dart';
 import '../../../../providers/messaging_provider.dart';
 import '../../../profile/presentation/screens/edit_profile_screen.dart';
+import 'reviews_screen.dart';
 
 // ── Provider لجلب بيانات مستخدم بعينه ───────────────────
 final userProfileProvider =
@@ -205,7 +206,17 @@ class ProfileScreen extends ConsumerWidget {
                               icon: Icons.rate_review,
                               value: '${user.totalRatings ?? 0}',
                               label: 'Reviews',
-                              color: theme.colorScheme.primary),
+                              color: theme.colorScheme.primary,
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => ReviewsScreen(
+                                      targetId: user.id,
+                                      title: '${user.name} Reviews',
+                                    ),
+                                  ),
+                                );
+                              }),
                         ],
                       ),
                       const SizedBox(height: 24),
@@ -320,32 +331,43 @@ class _StatCard extends StatelessWidget {
   final String value;
   final String label;
   final Color color;
+  final VoidCallback? onTap;
 
   const _StatCard({
     required this.icon,
     required this.value,
     required this.label,
     required this.color,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) => Expanded(
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.08),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
             borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            children: [
-              Icon(icon, color: color, size: 20),
-              const SizedBox(height: 4),
-              Text(value,
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 16, color: color)),
-              Text(label,
-                  style: TextStyle(fontSize: 11, color: Colors.grey[600])),
-            ],
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  Icon(icon, color: color, size: 20),
+                  const SizedBox(height: 4),
+                  Text(value,
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: color)),
+                  Text(label,
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                ],
+              ),
+            ),
           ),
         ),
       );

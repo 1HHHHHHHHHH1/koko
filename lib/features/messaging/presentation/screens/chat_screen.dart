@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/services/notification_service.dart';
 import '../../../../providers/auth_provider.dart';
 import '../../../../providers/messaging_provider.dart';
 
@@ -33,6 +35,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     await ref.read(messagingProvider.notifier).fetchMessages(
           widget.conversationId,
         );
+    await ref
+        .read(messagingProvider.notifier)
+        .markConversationAsRead(widget.conversationId);
+    ref
+        .read(notificationServiceProvider)
+        .markConversationRead(widget.conversationId);
     _scrollToBottom(animated: false);
   }
 
@@ -79,6 +87,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           previous?.getMessages(widget.conversationId).length ?? 0;
       final nextCount = next.getMessages(widget.conversationId).length;
       if (nextCount > previousCount) {
+        ref
+            .read(notificationServiceProvider)
+            .markConversationRead(widget.conversationId);
         _scrollToBottom(animated: previousCount > 0);
       }
     });
@@ -86,7 +97,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final theme = Theme.of(context);
     final msgState = ref.watch(messagingProvider);
     final currentUser = ref.watch(currentUserProvider);
-    final messages = msgState.getMessages(widget.conversationId);
+    final currentUserId =
+        currentUser?.id ?? Supabase.instance.client.auth.currentUser?.id;
+    final messages = [...msgState.getMessages(widget.conversationId)]
+      ..sort((a, b) {
+        final dateComparison = a.createdAt.compareTo(b.createdAt);
+        if (dateComparison != 0) return dateComparison;
+        return a.id.compareTo(b.id);
+      });
     final conversation = msgState.conversations
         .where((c) => c.id == widget.conversationId)
         .firstOrNull;
@@ -159,7 +177,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         itemCount: messages.length,
                         itemBuilder: (context, index) {
                           final msg = messages[index];
-                          final isMe = msg.senderId == currentUser?.id;
+                          final isMe = msg.senderId == currentUserId;
                           final showDate = index == 0 ||
                               !_isSameDay(
                                 messages[index - 1].createdAt,
@@ -181,7 +199,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                 ),
                               _MessageBubble(
                                 message: msg.content,
-                                time: DateFormat('HH:mm').format(msg.createdAt),
+                                time: _formatTime(msg.createdAt),
                                 isMe: isMe,
                                 isRead: msg.isRead,
                               ),
@@ -256,15 +274,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   bool _isSameDay(DateTime a, DateTime b) =>
-      a.year == b.year && a.month == b.month && a.day == b.day;
+      a.toLocal().year == b.toLocal().year &&
+      a.toLocal().month == b.toLocal().month &&
+      a.toLocal().day == b.toLocal().day;
+
+  String _formatTime(DateTime date) {
+    return DateFormat('HH:mm').format(date.toLocal());
+  }
 
   String _formatDate(DateTime date) {
+    final localDate = date.toLocal();
     final now = DateTime.now();
-    if (_isSameDay(date, now)) return 'Today';
-    if (_isSameDay(date, now.subtract(const Duration(days: 1)))) {
+    if (_isSameDay(localDate, now)) return 'Today';
+    if (_isSameDay(localDate, now.subtract(const Duration(days: 1)))) {
       return 'Yesterday';
     }
-    return DateFormat('MMMM d, yyyy').format(date);
+    return DateFormat('MMMM d, yyyy').format(localDate);
   }
 }
 

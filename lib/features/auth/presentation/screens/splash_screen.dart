@@ -97,7 +97,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                           color: theme.colorScheme.primary),
                     ),
                     const SizedBox(height: 32),
-                    Text('VentureBridge',
+                    Text('SharkSpace',
                         style: theme.textTheme.headlineLarge?.copyWith(
                             color: Colors.white, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),

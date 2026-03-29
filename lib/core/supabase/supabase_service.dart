@@ -28,7 +28,7 @@ class SupabaseService {
   Future<AuthResponse> login(String email, String password) async {
     final res =
         await client.auth.signInWithPassword(email: email, password: password);
-    if (res.user == null) throw Exception('فشل تسجيل الدخول');
+    if (res.user == null) throw Exception('Login failed');
     return res;
   }
 
@@ -43,7 +43,7 @@ class SupabaseService {
       password: password,
       data: {'name': name, 'user_type': userType},
     );
-    if (res.user == null) throw Exception('فشل إنشاء الحساب');
+    if (res.user == null) throw Exception('Account creation failed');
     await client.from(SupabaseConstants.profilesTable).upsert({
       'id': res.user!.id,
       'email': email,
@@ -104,15 +104,30 @@ class SupabaseService {
     String? stage,
     String? sort,
   }) async {
-    dynamic q = client
-        .from(SupabaseConstants.projectsTable)
-        .select('*, profiles:owner_id(name,avatar)');
-    if (industry != null) q = q.eq('industry', industry);
-    if (stage != null) q = q.eq('stage', stage);
-    final res = await q
-        .order('created_at', ascending: false)
-        .range((page - 1) * limit, page * limit - 1);
-    return (res as List).map((j) => Project.fromJson(_flat(j))).toList();
+    dynamic q =
+        client.from(SupabaseConstants.projectsTable).select(_projectSelect);
+    if (industry != null && industry.trim().isNotEmpty) {
+      q = q.eq('industry', industry.trim());
+    }
+    if (stage != null && stage.trim().isNotEmpty) {
+      q = q.eq('stage', stage.trim());
+    }
+
+    switch (sort) {
+      case 'highest_rated':
+        q = q.order('average_rating', ascending: false);
+        break;
+      case 'most_liked':
+        q = q.order('total_likes', ascending: false);
+        break;
+      case 'newest':
+      default:
+        q = q.order('created_at', ascending: false);
+        break;
+    }
+
+    final res = await q.range((page - 1) * limit, page * limit - 1);
+    return (res as List).map((j) => Project.fromJson(_flatProject(j))).toList();
   }
 
   Future<Project> getProjectById(String id) async {
@@ -167,13 +182,62 @@ class SupabaseService {
     int limit = 20,
     String? industry,
     String? stage,
+    String? sort,
   }) async {
-    final res = await client
-        .from(SupabaseConstants.investorsTable)
-        .select(_investorSelect)
-        .order('created_at', ascending: false)
-        .range((page - 1) * limit, page * limit - 1);
-    return (res as List).map((j) => Investor.fromJson(_flat(j))).toList();
+    dynamic q =
+        client.from(SupabaseConstants.investorsTable).select(_investorSelect);
+
+    switch (sort) {
+      case 'highest_rated':
+        q = q.order('average_rating', ascending: false);
+        break;
+      case 'most_liked':
+        q = q.order('total_likes', ascending: false);
+        break;
+      case 'newest':
+      default:
+        q = q.order('created_at', ascending: false);
+        break;
+    }
+
+    final hasClientFilters = (industry != null && industry.trim().isNotEmpty) ||
+        (stage != null && stage.trim().isNotEmpty);
+
+    final res = await q.range(
+      hasClientFilters ? 0 : (page - 1) * limit,
+      hasClientFilters ? 199 : page * limit - 1,
+    );
+
+    var investors =
+        (res as List).map((j) => Investor.fromJson(_flat(j))).toList();
+
+    if (industry != null && industry.trim().isNotEmpty) {
+      final normalizedIndustry = industry.trim().toLowerCase();
+      investors = investors.where((investor) {
+        final criteriaIndustries = investor.criteria?.industries ?? const [];
+        final profileIndustries = investor.industries ?? const [];
+        final allIndustries = [...criteriaIndustries, ...profileIndustries]
+            .map((value) => value.toLowerCase())
+            .toSet();
+        return allIndustries.contains(normalizedIndustry);
+      }).toList();
+    }
+
+    if (stage != null && stage.trim().isNotEmpty) {
+      final normalizedStage = stage.trim().toLowerCase();
+      investors = investors.where((investor) {
+        final stages = (investor.criteria?.stages ?? const [])
+            .map((value) => value.toLowerCase())
+            .toSet();
+        return stages.contains(normalizedStage);
+      }).toList();
+    }
+
+    if (hasClientFilters) {
+      investors = investors.skip((page - 1) * limit).take(limit).toList();
+    }
+
+    return investors;
   }
 
   Future<Investor> getInvestorById(String id) async {
@@ -362,35 +426,114 @@ class SupabaseService {
     int page = 1,
     int limit = 20,
   }) async {
+    final normalizedQuery = query.trim();
+    if (normalizedQuery.isEmpty) {
+      return SearchResults(
+        users: const [],
+        projects: const [],
+        investors: const [],
+        total: 0,
+      );
+    }
+
+    final normalizedType = type?.trim().toLowerCase();
+    final pattern = '%$normalizedQuery%';
     final from = (page - 1) * limit;
     final to = page * limit - 1;
     List<app.User> users = [];
     List<Project> projects = [];
     List<Investor> investors = [];
 
-    if (type == null || type == 'user') {
-      final r = await client
-          .from(SupabaseConstants.profilesTable)
-          .select()
-          .ilike('name', '%$query%')
+    if (normalizedType == null ||
+        normalizedType == 'user' ||
+        normalizedType == 'entrepreneur') {
+      dynamic userQuery = client.from(SupabaseConstants.profilesTable).select();
+      if (normalizedType == null || normalizedType == 'entrepreneur') {
+        userQuery = userQuery.eq('user_type', 'entrepreneur');
+      }
+
+      final r = await userQuery
+          .or(
+            'name.ilike.$pattern,'
+            'bio.ilike.$pattern,'
+            'company.ilike.$pattern,'
+            'position.ilike.$pattern,'
+            'location.ilike.$pattern',
+          )
           .range(from, to);
       users = (r as List).map((j) => app.User.fromJson(j)).toList();
     }
-    if (type == null || type == 'project') {
+
+    if (normalizedType == null || normalizedType == 'project') {
       final r = await client
           .from(SupabaseConstants.projectsTable)
-          .select()
-          .or('title.ilike.%$query%,description.ilike.%$query%')
+          .select(_projectSelect)
+          .or(
+            'title.ilike.$pattern,'
+            'description.ilike.$pattern,'
+            'industry.ilike.$pattern,'
+            'stage.ilike.$pattern',
+          )
           .range(from, to);
-      projects = (r as List).map((j) => Project.fromJson(j)).toList();
+      projects =
+          (r as List).map((j) => Project.fromJson(_flatProject(j))).toList();
     }
-    if (type == null || type == 'investor') {
-      final r = await client
+
+    if (normalizedType == null || normalizedType == 'investor') {
+      final matchedInvestorRows = <String, Map<String, dynamic>>{};
+
+      final profileMatches = await client
+          .from(SupabaseConstants.profilesTable)
+          .select('id')
+          .eq('user_type', 'investor')
+          .or(
+            'name.ilike.$pattern,'
+            'bio.ilike.$pattern,'
+            'company.ilike.$pattern,'
+            'position.ilike.$pattern,'
+            'location.ilike.$pattern',
+          );
+
+      final matchedUserIds = (profileMatches as List)
+          .map((row) => row['id']?.toString())
+          .whereType<String>()
+          .toSet()
+          .toList();
+
+      if (matchedUserIds.isNotEmpty) {
+        final investorByProfile = await client
+            .from(SupabaseConstants.investorsTable)
+            .select(_investorSelect)
+            .inFilter('user_id', matchedUserIds);
+
+        for (final row in investorByProfile as List) {
+          final investorJson = _flat(Map<String, dynamic>.from(row as Map));
+          matchedInvestorRows[investorJson['id'] as String] = investorJson;
+        }
+      }
+
+      final investorByBio = await client
           .from(SupabaseConstants.investorsTable)
-          .select('*, profiles:user_id(name)')
-          .range(from, to);
-      investors = (r as List).map((j) => Investor.fromJson(_flat(j))).toList();
+          .select(_investorSelect)
+          .ilike('bio', pattern);
+
+      for (final row in investorByBio as List) {
+        final investorJson = _flat(Map<String, dynamic>.from(row as Map));
+        matchedInvestorRows[investorJson['id'] as String] = investorJson;
+      }
+
+      final mergedInvestors = matchedInvestorRows.values
+          .map(Investor.fromJson)
+          .toList()
+        ..sort((a, b) {
+          final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          return bDate.compareTo(aDate);
+        });
+
+      investors = mergedInvestors.skip(from).take(limit).toList();
     }
+
     return SearchResults(
         users: users,
         projects: projects,
@@ -470,6 +613,15 @@ class SupabaseService {
         distribution: dist);
   }
 
+  Future<List<Rating>> getRatingsForTarget(String targetId) async {
+    final res = await client
+        .from(SupabaseConstants.ratingsTable)
+        .select()
+        .eq('target_id', targetId)
+        .order('created_at', ascending: false);
+    return (res as List).map((j) => Rating.fromJson(j)).toList();
+  }
+
   // ══════════════════ MESSAGES ══════════════════
 
   /// ✅ جلب المحادثات مع بيانات المستخدم الآخر الكاملة
@@ -534,8 +686,8 @@ class SupabaseService {
         otherParticipant: otherUser,
         lastMessage: lastMessage,
         unreadCount: unreadCount,
-        createdAt: DateTime.tryParse(convMap['created_at'] ?? ''),
-        updatedAt: DateTime.tryParse(convMap['updated_at'] ?? ''),
+        createdAt: _parseDateTime(convMap['created_at']),
+        updatedAt: _parseDateTime(convMap['updated_at']),
       ));
     }
 
@@ -556,6 +708,25 @@ class SupabaseService {
         .eq('conversation_id', conversationId)
         .order('created_at', ascending: true);
     return (res as List).map((j) => Message.fromJson(j)).toList();
+  }
+
+  Future<void> markConversationMessagesAsRead(String conversationId) async {
+    final uid = client.auth.currentUser!.id;
+    await client
+        .from(SupabaseConstants.messagesTable)
+        .update({'is_read': true})
+        .eq('conversation_id', conversationId)
+        .eq('is_read', false)
+        .neq('sender_id', uid);
+  }
+
+  Future<void> deleteConversationForCurrentUser(String conversationId) async {
+    final uid = client.auth.currentUser!.id;
+    await client
+        .from(SupabaseConstants.convParticipants)
+        .delete()
+        .eq('conversation_id', conversationId)
+        .eq('user_id', uid);
   }
 
   Stream<List<Message>> messagesStream(String conversationId) {
@@ -589,25 +760,25 @@ class SupabaseService {
   Future<String> getOrCreateConversation(String recipientId) async {
     final uid = client.auth.currentUser!.id;
 
-    // هل توجد محادثة بين الاثنين؟
-    final myConvs = await client
+    final participantRows = await client
         .from(SupabaseConstants.convParticipants)
-        .select('conversation_id')
-        .eq('user_id', uid);
+        .select('conversation_id, user_id')
+        .inFilter('user_id', [uid, recipientId]);
 
-    final myConvIds =
-        (myConvs as List).map((r) => r['conversation_id'] as String).toList();
+    final participantsByConversation = <String, Set<String>>{};
+    for (final row in participantRows as List) {
+      final conversationId = row['conversation_id']?.toString();
+      final userId = row['user_id']?.toString();
+      if (conversationId == null || userId == null) continue;
 
-    if (myConvIds.isNotEmpty) {
-      final existing = await client
-          .from(SupabaseConstants.convParticipants)
-          .select('conversation_id')
-          .eq('user_id', recipientId)
-          .inFilter('conversation_id', myConvIds)
-          .maybeSingle();
+      participantsByConversation
+          .putIfAbsent(conversationId, () => <String>{})
+          .add(userId);
+    }
 
-      if (existing != null) {
-        return existing['conversation_id'] as String;
+    for (final entry in participantsByConversation.entries) {
+      if (entry.value.contains(uid) && entry.value.contains(recipientId)) {
+        return entry.key;
       }
     }
 
@@ -652,6 +823,11 @@ class SupabaseService {
       'owner_name': p['name'] ?? json['owner_name'],
       'owner_avatar': p['avatar'] ?? json['owner_avatar'],
     };
+  }
+
+  DateTime? _parseDateTime(dynamic value) {
+    if (value == null) return null;
+    return DateTime.tryParse(value.toString())?.toLocal();
   }
 
   Future<void> _ensureInvestorRecord({
