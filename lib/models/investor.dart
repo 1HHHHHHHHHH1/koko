@@ -6,6 +6,7 @@ class Investor extends Equatable {
   final String name;
   final String? avatar;
   final String? bio;
+  final List<String>? industries;
   final String? company;
   final String? position;
   final String? location;
@@ -24,6 +25,7 @@ class Investor extends Equatable {
     required this.name,
     this.avatar,
     this.bio,
+    this.industries,
     this.company,
     this.position,
     this.location,
@@ -44,6 +46,9 @@ class Investor extends Equatable {
       name: json['name'] ?? '',
       avatar: json['avatar'],
       bio: json['bio'],
+      industries: json['industries'] != null
+          ? List<String>.from(json['industries'])
+          : null,
       company: json['company'],
       position: json['position'],
       location: json['location'],
@@ -78,6 +83,7 @@ class Investor extends Equatable {
       'name': name,
       'avatar': avatar,
       'bio': bio,
+      'industries': industries,
       'company': company,
       'position': position,
       'location': location,
@@ -98,6 +104,7 @@ class Investor extends Equatable {
     String? name,
     String? avatar,
     String? bio,
+    List<String>? industries,
     String? company,
     String? position,
     String? location,
@@ -116,6 +123,7 @@ class Investor extends Equatable {
       name: name ?? this.name,
       avatar: avatar ?? this.avatar,
       bio: bio ?? this.bio,
+      industries: industries ?? this.industries,
       company: company ?? this.company,
       position: position ?? this.position,
       location: location ?? this.location,
@@ -137,6 +145,7 @@ class Investor extends Equatable {
         name,
         avatar,
         bio,
+        industries,
         company,
         position,
         location,
@@ -173,8 +182,7 @@ class InvestmentCriteria extends Equatable {
       industries: json['industries'] != null
           ? List<String>.from(json['industries'])
           : [],
-      stages:
-          json['stages'] != null ? List<String>.from(json['stages']) : [],
+      stages: json['stages'] != null ? List<String>.from(json['stages']) : [],
       minInvestment:
           (json['min_investment'] ?? json['minInvestment'] ?? 0).toDouble(),
       maxInvestment:
@@ -184,8 +192,7 @@ class InvestmentCriteria extends Equatable {
           : json['preferredLocations'] != null
               ? List<String>.from(json['preferredLocations'])
               : null,
-      additionalNotes:
-          json['additional_notes'] ?? json['additionalNotes'],
+      additionalNotes: json['additional_notes'] ?? json['additionalNotes'],
     );
   }
 

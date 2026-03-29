@@ -3,18 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/supabase/supabase_service.dart';
-import '../../../../core/router/app_router.dart';
 import '../../../../models/user.dart';
 import '../../../../providers/auth_provider.dart';
 import '../../../../providers/likes_provider.dart';
+import '../../../../providers/messaging_provider.dart';
 import '../../../profile/presentation/screens/edit_profile_screen.dart';
 
 // ── Provider لجلب بيانات مستخدم بعينه ───────────────────
 final userProfileProvider =
     FutureProvider.family<User?, String>((ref, userId) async {
   final service = ref.watch(supabaseServiceProvider);
-  final data    = await service.client
-      .from('profiles').select().eq('id', userId).maybeSingle();
+  final data = await service.client
+      .from('profiles')
+      .select()
+      .eq('id', userId)
+      .maybeSingle();
   return data == null ? null : User.fromJson(data);
 });
 
@@ -24,22 +27,21 @@ class ProfileScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme        = Theme.of(context);
+    final theme = Theme.of(context);
     final profileAsync = ref.watch(userProfileProvider(userId));
-    final currentUser  = ref.watch(currentUserProvider);
-    final isMe         = currentUser?.id == userId;
-    final isLiked      = ref.watch(isLikedProvider(userId));
+    final currentUser = ref.watch(currentUserProvider);
+    final isMe = currentUser?.id == userId;
+    final isLiked = ref.watch(isLikedProvider(userId));
 
     return Scaffold(
       body: profileAsync.when(
-        loading: () => const Scaffold(
-            body: Center(child: CircularProgressIndicator())),
-
+        loading: () =>
+            const Scaffold(body: Center(child: CircularProgressIndicator())),
         error: (e, _) => Scaffold(
             appBar: AppBar(),
-            body: Center(child: Text('Error: $e',
-                style: TextStyle(color: Colors.red.shade600)))),
-
+            body: Center(
+                child: Text('Error: $e',
+                    style: TextStyle(color: Colors.red.shade600)))),
         data: (user) {
           if (user == null) {
             return Scaffold(
@@ -75,8 +77,7 @@ class ProfileScreen extends ConsumerWidget {
                             children: [
                               CircleAvatar(
                                 radius: 50,
-                                backgroundColor:
-                                    Colors.white.withOpacity(0.2),
+                                backgroundColor: Colors.white.withOpacity(0.2),
                                 backgroundImage: user.avatar != null
                                     ? NetworkImage(user.avatar!)
                                     : null,
@@ -94,9 +95,11 @@ class ProfileScreen extends ConsumerWidget {
                               // ✅ زر تعديل الصورة (فقط لصاحب البروفايل)
                               if (isMe)
                                 Positioned(
-                                  bottom: 0, right: 0,
+                                  bottom: 0,
+                                  right: 0,
                                   child: GestureDetector(
-                                    onTap: () => Navigator.push(context,
+                                    onTap: () => Navigator.push(
+                                        context,
                                         MaterialPageRoute(
                                             builder: (_) =>
                                                 const EditProfileScreen())),
@@ -162,8 +165,8 @@ class ProfileScreen extends ConsumerWidget {
                   if (isMe)
                     IconButton(
                       tooltip: 'Edit Profile',
-                      icon: const Icon(Icons.edit_outlined,
-                          color: Colors.white),
+                      icon:
+                          const Icon(Icons.edit_outlined, color: Colors.white),
                       onPressed: () => Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -182,14 +185,13 @@ class ProfileScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-
                       // ── Stats ──
                       Row(
                         children: [
                           _StatCard(
                               icon: Icons.star,
-                              value: user.averageRating
-                                      ?.toStringAsFixed(1) ?? '—',
+                              value:
+                                  user.averageRating?.toStringAsFixed(1) ?? '—',
                               label: 'Rating',
                               color: Colors.amber),
                           const SizedBox(width: 12),
@@ -249,7 +251,7 @@ class ProfileScreen extends ConsumerWidget {
 
                       // ── Details ──
                       if (user.location != null ||
-                          user.website  != null ||
+                          user.website != null ||
                           user.linkedIn != null) ...[
                         _SectionTitle('Details'),
                         const SizedBox(height: 8),
@@ -268,7 +270,8 @@ class ProfileScreen extends ConsumerWidget {
                         _SectionTitle('Industries'),
                         const SizedBox(height: 8),
                         Wrap(
-                          spacing: 8, runSpacing: 8,
+                          spacing: 8,
+                          runSpacing: 8,
                           children: user.industries!
                               .map((i) => Chip(label: Text(i)))
                               .toList(),
@@ -283,7 +286,14 @@ class ProfileScreen extends ConsumerWidget {
                           child: FilledButton.icon(
                             icon: const Icon(Icons.message_outlined),
                             label: const Text('Send Message'),
-                            onPressed: () => context.go(Routes.conversations),
+                            onPressed: () async {
+                              final convId = await ref
+                                  .read(messagingProvider.notifier)
+                                  .getOrCreateConversation(userId);
+                              if (context.mounted) {
+                                context.push('/messages/$convId');
+                              }
+                            },
                           ),
                         ),
                       ],
@@ -307,13 +317,15 @@ class ProfileScreen extends ConsumerWidget {
 
 class _StatCard extends StatelessWidget {
   final IconData icon;
-  final String   value;
-  final String   label;
-  final Color    color;
+  final String value;
+  final String label;
+  final Color color;
 
   const _StatCard({
-    required this.icon, required this.value,
-    required this.label, required this.color,
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.color,
   });
 
   @override
@@ -328,10 +340,11 @@ class _StatCard extends StatelessWidget {
             children: [
               Icon(icon, color: color, size: 20),
               const SizedBox(height: 4),
-              Text(value, style: TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 16, color: color)),
-              Text(label, style: TextStyle(
-                  fontSize: 11, color: Colors.grey[600])),
+              Text(value,
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 16, color: color)),
+              Text(label,
+                  style: TextStyle(fontSize: 11, color: Colors.grey[600])),
             ],
           ),
         ),
@@ -344,13 +357,15 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Text(text,
-      style: Theme.of(context).textTheme.titleMedium
+      style: Theme.of(context)
+          .textTheme
+          .titleMedium
           ?.copyWith(fontWeight: FontWeight.bold));
 }
 
 class _InfoRow extends StatelessWidget {
   final IconData icon;
-  final String   text;
+  final String text;
   const _InfoRow(this.icon, this.text);
 
   @override
@@ -362,7 +377,9 @@ class _InfoRow extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(text,
-                  style: Theme.of(context).textTheme.bodyMedium
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
                       ?.copyWith(color: Colors.grey[700])),
             ),
           ],

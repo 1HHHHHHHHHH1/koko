@@ -45,6 +45,24 @@ class InvestorsNotifier extends StateNotifier<InvestorsState> {
   final SupabaseService _service;
   InvestorsNotifier(this._service) : super(const InvestorsState());
 
+  Future<void> loadMyInvestor() async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final investor = await _service.getCurrentInvestor();
+      state = InvestorsState(
+        investors: state.investors,
+        selectedInvestor: state.selectedInvestor,
+        myCriteria: investor?.criteria,
+        isLoading: false,
+        error: null,
+        currentPage: state.currentPage,
+        hasMore: state.hasMore,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
   Future<void> fetchInvestors({
     bool    refresh  = false,
     String? sort,
@@ -82,7 +100,15 @@ class InvestorsNotifier extends StateNotifier<InvestorsState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       await _service.updateInvestorCriteria(criteria);
-      state = state.copyWith(myCriteria: criteria, isLoading: false);
+      state = InvestorsState(
+        investors: state.investors,
+        selectedInvestor: state.selectedInvestor,
+        myCriteria: criteria,
+        isLoading: false,
+        error: null,
+        currentPage: state.currentPage,
+        hasMore: state.hasMore,
+      );
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());

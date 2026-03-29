@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
-import '../../../../core/router/app_router.dart';
 import '../../../../providers/investor_provider.dart';
 import '../../../../providers/likes_provider.dart';
 import '../../../../providers/ratings_provider.dart';
+import '../../../../providers/messaging_provider.dart';
 import '../../../../widgets/common/rating_display.dart';
 
 class InvestorDetailScreen extends ConsumerStatefulWidget {
@@ -147,7 +147,14 @@ class _InvestorDetailScreenState extends ConsumerState<InvestorDetailScreen> {
                     children: [
                       Expanded(
                         child: FilledButton.icon(
-                          onPressed: () => context.go(Routes.conversations),
+                          onPressed: () async {
+                            final convId = await ref
+                                .read(messagingProvider.notifier)
+                                .getOrCreateConversation(investor.userId);
+                            if (context.mounted) {
+                              context.push('/messages/$convId');
+                            }
+                          },
                           icon: const Icon(Icons.message),
                           label: const Text('Message'),
                         ),

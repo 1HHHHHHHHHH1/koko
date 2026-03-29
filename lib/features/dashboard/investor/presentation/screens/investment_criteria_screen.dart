@@ -26,10 +26,15 @@ class _InvestmentCriteriaScreenState
   @override
   void initState() {
     super.initState();
-    _loadExistingCriteria();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadExistingCriteria();
+    });
   }
 
-  void _loadExistingCriteria() {
+  Future<void> _loadExistingCriteria() async {
+    await ref.read(investorsProvider.notifier).loadMyInvestor();
+    if (!mounted) return;
+
     final criteria = ref.read(investorsProvider).myCriteria;
     if (criteria != null) {
       _minInvestmentController.text = criteria.minInvestment.toString();

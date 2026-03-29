@@ -7,39 +7,43 @@ import '../models/message.dart';
 // ────────────────────────────────────────────────────────────
 // State
 // ────────────────────────────────────────────────────────────
+
 class MessagingState {
-  final List<Conversation>         conversations;
-  final Map<String, List<Message>> messagesMap;   // conversationId → messages
-  final bool                       isLoading;
-  final bool                       isSending;
-  final String?                    activeConversationId;
-  final String?                    error;
+  final List<Conversation> conversations;
+  final Map<String, List<Message>> messagesMap; // conversationId → messages
+  final bool isLoading;
+  final bool isSending;
+  final String? activeConversationId;
+  final String? error;
 
   const MessagingState({
-    this.conversations           = const [],
-    this.messagesMap             = const {},
-    this.isLoading               = false,
-    this.isSending               = false,
+    this.conversations = const [],
+    this.messagesMap = const {},
+    this.isLoading = false,
+    this.isSending = false,
     this.activeConversationId,
     this.error,
   });
 
   MessagingState copyWith({
-    List<Conversation>?         conversations,
+    List<Conversation>? conversations,
     Map<String, List<Message>>? messagesMap,
-    bool?                       isLoading,
-    bool?                       isSending,
-    String?                     activeConversationId,
-    String?                     error,
-    bool                        clearActive = false,
-  }) => MessagingState(
-    conversations:          conversations          ?? this.conversations,
-    messagesMap:            messagesMap            ?? this.messagesMap,
-    isLoading:              isLoading              ?? this.isLoading,
-    isSending:              isSending              ?? this.isSending,
-    activeConversationId:   clearActive ? null     : (activeConversationId ?? this.activeConversationId),
-    error:                  error,
-  );
+    bool? isLoading,
+    bool? isSending,
+    String? activeConversationId,
+    String? error,
+    bool clearActive = false,
+  }) =>
+      MessagingState(
+        conversations: conversations ?? this.conversations,
+        messagesMap: messagesMap ?? this.messagesMap,
+        isLoading: isLoading ?? this.isLoading,
+        isSending: isSending ?? this.isSending,
+        activeConversationId: clearActive
+            ? null
+            : (activeConversationId ?? this.activeConversationId),
+        error: error,
+      );
 
   /// الرسائل الخاصة بمحادثة معيّنة
   List<Message> getMessages(String conversationId) =>
@@ -66,6 +70,15 @@ class MessagingNotifier extends StateNotifier<MessagingState> {
     }
   }
 
+  Future<void> _refreshConversationsSilently() async {
+    try {
+      final convs = await _service.getConversations();
+      state = state.copyWith(conversations: convs);
+    } catch (_) {
+      // Keep the current state when a background refresh fails.
+    }
+  }
+
   // ---- تحديد المحادثة النشطة + الاشتراك في Realtime ----
   Future<void> setActiveConversation(String? conversationId) async {
     await _realtimeSub?.cancel();
@@ -79,9 +92,8 @@ class MessagingNotifier extends StateNotifier<MessagingState> {
     state = state.copyWith(activeConversationId: conversationId);
 
     // ✅ Realtime stream
-    _realtimeSub = _service
-        .messagesStream(conversationId)
-        .listen((updatedMessages) {
+    _realtimeSub =
+        _service.messagesStream(conversationId).listen((updatedMessages) {
       final newMap = Map<String, List<Message>>.from(state.messagesMap);
       newMap[conversationId] = updatedMessages;
       state = state.copyWith(messagesMap: newMap);
@@ -111,6 +123,7 @@ class MessagingNotifier extends StateNotifier<MessagingState> {
     try {
       await _service.sendMessage(
           conversationId: conversationId, content: content);
+      await _refreshConversationsSilently();
       state = state.copyWith(isSending: false);
       // الرسالة ستظهر تلقائياً عبر Realtime ↑
     } catch (e) {
@@ -119,12 +132,25 @@ class MessagingNotifier extends StateNotifier<MessagingState> {
   }
 
   // ---- إنشاء محادثة جديدة ----
-  Future<Conversation?> createConversation(String recipientId) async {
+  Future<String?> createConversation(String recipientId) async {
     try {
-      return await _service.createConversation(recipientId);
+      return await _service.getOrCreateConversation(recipientId);
     } catch (e) {
       state = state.copyWith(error: e.toString());
       return null;
+    }
+  }
+
+  // ✅ إنشاء أو جلب محادثة موجودة مع مستخدم معين
+  Future<String> getOrCreateConversation(String recipientId) async {
+    try {
+      final convId = await _service.getOrCreateConversation(recipientId);
+      // تحديث قائمة المحادثات
+      await fetchConversations();
+      return convId;
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      rethrow;
     }
   }
 
@@ -142,6 +168,6 @@ class MessagingNotifier extends StateNotifier<MessagingState> {
 // ────────────────────────────────────────────────────────────
 final messagingProvider =
     StateNotifierProvider<MessagingNotifier, MessagingState>((ref) {
-  final service = ref.watch(supabaseServiceProvider);
+  final service = ref.read(supabaseServiceProvider);
   return MessagingNotifier(service);
 });

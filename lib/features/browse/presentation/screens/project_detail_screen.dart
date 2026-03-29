@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
-import '../../../../core/router/app_router.dart';
 import '../../../../providers/project_provider.dart';
 import '../../../../providers/likes_provider.dart';
 import '../../../../providers/ratings_provider.dart';
+import '../../../../providers/messaging_provider.dart';
 import '../../../../widgets/common/rating_display.dart';
 
 class ProjectDetailScreen extends ConsumerStatefulWidget {
@@ -193,8 +193,8 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                                     const SizedBox(width: 4),
                                     Text(
                                       ratingSummary.formattedRating,
-                                      style: theme.textTheme.titleLarge
-                                          ?.copyWith(
+                                      style:
+                                          theme.textTheme.titleLarge?.copyWith(
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -233,7 +233,14 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                     children: [
                       Expanded(
                         child: FilledButton.icon(
-                          onPressed: () => context.go(Routes.conversations),
+                          onPressed: () async {
+                            final convId = await ref
+                                .read(messagingProvider.notifier)
+                                .getOrCreateConversation(project.ownerId);
+                            if (context.mounted) {
+                              context.push('/messages/$convId');
+                            }
+                          },
                           icon: const Icon(Icons.message),
                           label: const Text('Contact'),
                         ),
@@ -276,7 +283,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                       title: Text(project.ownerName),
                       subtitle: const Text('Entrepreneur'),
                       trailing: const Icon(Icons.chevron_right),
-                      onTap: () => context.go('/profile/${project.ownerId}'),
+                      onTap: () => context.push('/profile/${project.ownerId}'),
                     ),
                   ),
                   const SizedBox(height: 24),

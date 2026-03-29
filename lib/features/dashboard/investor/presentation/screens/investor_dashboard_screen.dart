@@ -6,6 +6,7 @@ import '/providers/auth_provider.dart';
 import '/providers/investor_provider.dart';
 import '/providers/match_provider.dart';
 import '/widgets/common/app_drawer.dart';
+import '/core/services/notification_service.dart';
 import '/widgets/cards/match_card.dart';
 
 class InvestorDashboardScreen extends ConsumerStatefulWidget {
@@ -22,6 +23,7 @@ class _InvestorDashboardScreenState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(investorsProvider.notifier).loadMyInvestor();
       ref.read(matchesProvider.notifier).fetchMatchedProjects();
     });
   }
@@ -39,11 +41,15 @@ class _InvestorDashboardScreenState
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
-            onPressed: () => context.go(Routes.search),
+            onPressed: () => context.push(Routes.search),
           ),
           IconButton(
             icon: const Icon(Icons.message_outlined),
-            onPressed: () => context.go(Routes.conversations),
+            onPressed: () => context.push(Routes.conversations),
+          ),
+          // ✅ جرس الإشعارات
+          NotificationBell(
+            onTap: () => context.push(Routes.conversations),
           ),
           // ✅ زر البروفايل
           Consumer(builder: (context, ref, _) {
@@ -52,7 +58,7 @@ class _InvestorDashboardScreenState
               tooltip: 'My Profile',
               onPressed: () {
                 final u = ref.read(currentUserProvider);
-                if (u != null) context.go('/profile/${u.id}');
+                if (u != null) context.push('/profile/${u.id}');
               },
             );
           }),
@@ -61,6 +67,7 @@ class _InvestorDashboardScreenState
       drawer: const AppDrawer(),
       body: RefreshIndicator(
         onRefresh: () async {
+          await ref.read(investorsProvider.notifier).loadMyInvestor();
           await ref.read(matchesProvider.notifier).fetchMatchedProjects();
         },
         child: SingleChildScrollView(
@@ -128,7 +135,7 @@ class _InvestorDashboardScreenState
                       icon: Icons.tune,
                       title: 'Investment Criteria',
                       color: theme.colorScheme.secondary,
-                      onTap: () => context.go(Routes.investmentCriteria),
+                      onTap: () => context.push(Routes.investmentCriteria),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -137,7 +144,7 @@ class _InvestorDashboardScreenState
                       icon: Icons.search,
                       title: 'Browse Projects',
                       color: theme.colorScheme.primary,
-                      onTap: () => context.go(Routes.browseProjects),
+                      onTap: () => context.push(Routes.browseProjects),
                     ),
                   ),
                 ],
@@ -149,7 +156,7 @@ class _InvestorDashboardScreenState
                 title: 'Matched Projects',
                 subtitle: 'Projects matching your investment criteria',
                 onViewAll: matchesState.matchedProjects.isNotEmpty
-                    ? () => context.go(Routes.browseProjects)
+                    ? () => context.push(Routes.browseProjects)
                     : null,
               ),
               const SizedBox(height: 12),
@@ -165,7 +172,7 @@ class _InvestorDashboardScreenState
                   actionLabel: investorsState.myCriteria == null
                       ? 'Set Criteria'
                       : 'Browse Projects',
-                  onAction: () => context.go(
+                  onAction: () => context.push(
                     investorsState.myCriteria == null
                         ? Routes.investmentCriteria
                         : Routes.browseProjects,
@@ -183,8 +190,8 @@ class _InvestorDashboardScreenState
                     final match = matchesState.matchedProjects[index];
                     return MatchCard(
                       match: match,
-                      onTap: () => context.go('/project/${match.targetId}'),
-                      onMessage: () => context.go(Routes.conversations),
+                      onTap: () => context.push('/project/${match.targetId}'),
+                      onMessage: () => context.push(Routes.conversations),
                     );
                   },
                 ),
@@ -193,7 +200,7 @@ class _InvestorDashboardScreenState
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go(Routes.browseProjects),
+        onPressed: () => context.push(Routes.browseProjects),
         icon: const Icon(Icons.search),
         label: const Text('Find Projects'),
       ),
