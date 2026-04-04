@@ -50,12 +50,11 @@ class PredictRequest(BaseModel):
     project_stage: Optional[str] = ""
     project_tags: List[str] = Field(default_factory=list)
     investor_name: str
-    investor_bio: Optional[str] = ""
+    investor_description: Optional[str] = ""
     investor_industries: List[str] = Field(default_factory=list)
     investor_stages: List[str] = Field(default_factory=list)
     investor_min_investment: Optional[float] = None
     investor_max_investment: Optional[float] = None
-    investor_notes: Optional[str] = ""
 
 
 class PredictResponse(BaseModel):
@@ -71,12 +70,11 @@ class PredictResponse(BaseModel):
 class InvestorPayload(BaseModel):
     id: str = ""
     name: str = ""
-    bio: str = ""
+    description: str = ""
     industries: List[str] = Field(default_factory=list)
     stages: List[str] = Field(default_factory=list)
     min_investment: Optional[float] = None
     max_investment: Optional[float] = None
-    notes: Optional[str] = ""
 
 
 class BulkRequest(BaseModel):
@@ -211,12 +209,13 @@ def _build_project_text(req: Any) -> str:
 def _build_investor_text(req: PredictRequest) -> str:
     parts = [
         f"Investor name: {req.investor_name}" if req.investor_name else "",
-        f"Investor bio: {req.investor_bio}" if req.investor_bio else "",
+        f"Investor description: {req.investor_description}"
+        if req.investor_description
+        else "",
         f"Preferred industries: {', '.join(req.investor_industries)}"
         if req.investor_industries
         else "",
         f"Preferred stages: {', '.join(req.investor_stages)}" if req.investor_stages else "",
-        f"Investment notes: {req.investor_notes}" if req.investor_notes else "",
         _format_range(req.investor_min_investment, req.investor_max_investment),
     ]
     return " | ".join(part for part in parts if part)
@@ -225,10 +224,9 @@ def _build_investor_text(req: PredictRequest) -> str:
 def _build_bulk_investor_text(inv: InvestorPayload) -> str:
     parts = [
         f"Investor name: {inv.name}" if inv.name else "",
-        f"Investor bio: {inv.bio}" if inv.bio else "",
+        f"Investor description: {inv.description}" if inv.description else "",
         f"Preferred industries: {', '.join(inv.industries)}" if inv.industries else "",
         f"Preferred stages: {', '.join(inv.stages)}" if inv.stages else "",
-        f"Investment notes: {inv.notes}" if inv.notes else "",
         _format_range(inv.min_investment, inv.max_investment),
     ]
     return " | ".join(part for part in parts if part)

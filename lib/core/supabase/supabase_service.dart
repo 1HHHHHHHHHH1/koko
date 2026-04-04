@@ -20,7 +20,7 @@ class SupabaseService {
   SupabaseService({required this.client});
 
   static const String _investorSelect =
-      '*, profiles:user_id(name,avatar,bio,company,position,location,industries)';
+      '*, profiles:user_id(name,avatar,bio,company,position,location,website,linkedin,industries)';
   static const String _projectSelect = '*, profiles:owner_id(name,avatar)';
 
   // ══════════════════ AUTH ══════════════════
@@ -70,7 +70,7 @@ class SupabaseService {
 
     final profile = app.User.fromJson(data);
     if (profile.isInvestor) {
-      await _ensureInvestorRecord(userId: profile.id, bio: profile.bio);
+      await _ensureInvestorRecord(userId: profile.id);
     }
     return profile;
   }
@@ -85,10 +85,8 @@ class SupabaseService {
         .single();
     final profile = app.User.fromJson(data);
     if (profile.isInvestor) {
-      final investorBio = profile.bio?.trim();
       await client.from(SupabaseConstants.investorsTable).upsert({
         'user_id': profile.id,
-        if (investorBio != null && investorBio.isNotEmpty) 'bio': investorBio,
         'updated_at': DateTime.now().toIso8601String(),
       }, onConflict: 'user_id');
     }
@@ -264,12 +262,9 @@ class SupabaseService {
 
   Future<void> updateInvestorCriteria(InvestmentCriteria criteria) async {
     final uid = client.auth.currentUser!.id;
-    final profile = await getCurrentUserProfile();
-    final investorBio = profile?.bio?.trim();
     await client.from(SupabaseConstants.investorsTable).upsert({
       'user_id': uid,
       'criteria': criteria.toJson(),
-      if (investorBio != null && investorBio.isNotEmpty) 'bio': investorBio,
       'updated_at': DateTime.now().toIso8601String(),
     }, onConflict: 'user_id');
   }
@@ -488,7 +483,6 @@ class SupabaseService {
           .eq('user_type', 'investor')
           .or(
             'name.ilike.$pattern,'
-            'bio.ilike.$pattern,'
             'company.ilike.$pattern,'
             'position.ilike.$pattern,'
             'location.ilike.$pattern',
@@ -512,14 +506,20 @@ class SupabaseService {
         }
       }
 
-      final investorByBio = await client
+      final investorCandidates = await client
           .from(SupabaseConstants.investorsTable)
           .select(_investorSelect)
-          .ilike('bio', pattern);
+          .range(0, 499);
 
-      for (final row in investorByBio as List) {
+      for (final row in investorCandidates as List) {
         final investorJson = _flat(Map<String, dynamic>.from(row as Map));
-        matchedInvestorRows[investorJson['id'] as String] = investorJson;
+        final investor = Investor.fromJson(investorJson);
+        final description =
+            (investor.criteria?.additionalNotes ?? '').trim().toLowerCase();
+
+        if (description.contains(normalizedQuery.toLowerCase())) {
+          matchedInvestorRows[investor.id] = investorJson;
+        }
       }
 
       final mergedInvestors = matchedInvestorRows.values
@@ -812,6 +812,8 @@ class SupabaseService {
       'company': p['company'] ?? json['company'],
       'position': p['position'] ?? json['position'],
       'location': p['location'] ?? json['location'],
+      'website': p['website'] ?? json['website'],
+      'linkedin': p['linkedin'] ?? json['linkedin'],
     };
   }
 
@@ -832,12 +834,9 @@ class SupabaseService {
 
   Future<void> _ensureInvestorRecord({
     required String userId,
-    String? bio,
   }) async {
-    final investorBio = bio?.trim();
     await client.from(SupabaseConstants.investorsTable).upsert({
       'user_id': userId,
-      if (investorBio != null && investorBio.isNotEmpty) 'bio': investorBio,
     }, onConflict: 'user_id', ignoreDuplicates: true);
   }
 }

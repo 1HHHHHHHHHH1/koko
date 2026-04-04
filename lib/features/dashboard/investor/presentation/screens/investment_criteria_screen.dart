@@ -18,7 +18,7 @@ class _InvestmentCriteriaScreenState
   final _formKey = GlobalKey<FormState>();
   final _minInvestmentController = TextEditingController();
   final _maxInvestmentController = TextEditingController();
-  final _notesController = TextEditingController();
+  final _descriptionController = TextEditingController();
 
   List<String> _selectedIndustries = [];
   List<String> _selectedStages = [];
@@ -39,7 +39,7 @@ class _InvestmentCriteriaScreenState
     if (criteria != null) {
       _minInvestmentController.text = criteria.minInvestment.toString();
       _maxInvestmentController.text = criteria.maxInvestment.toString();
-      _notesController.text = criteria.additionalNotes ?? '';
+      _descriptionController.text = criteria.additionalNotes ?? '';
       setState(() {
         _selectedIndustries = List.from(criteria.industries);
         _selectedStages = List.from(criteria.stages);
@@ -51,7 +51,7 @@ class _InvestmentCriteriaScreenState
   void dispose() {
     _minInvestmentController.dispose();
     _maxInvestmentController.dispose();
-    _notesController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 
@@ -97,14 +97,13 @@ class _InvestmentCriteriaScreenState
         return;
       }
 
+      final description = _descriptionController.text.trim();
       final criteria = InvestmentCriteria(
         industries: _selectedIndustries,
         stages: _selectedStages,
         minInvestment: double.parse(_minInvestmentController.text.trim()),
         maxInvestment: double.parse(_maxInvestmentController.text.trim()),
-        additionalNotes: _notesController.text.trim().isEmpty
-            ? null
-            : _notesController.text.trim(),
+        additionalNotes: description,
       );
 
       final success =
@@ -218,8 +217,8 @@ class _InvestmentCriteriaScreenState
                         if (max == null) {
                           return 'Invalid';
                         }
-                        final min = double.tryParse(
-                            _minInvestmentController.text);
+                        final min =
+                            double.tryParse(_minInvestmentController.text);
                         if (min != null && max < min) {
                           return 'Must be > min';
                         }
@@ -255,8 +254,7 @@ class _InvestmentCriteriaScreenState
                     label: Text(industry),
                     selected: isSelected,
                     onSelected: (_) => _toggleIndustry(industry),
-                    selectedColor:
-                        theme.colorScheme.primary.withOpacity(0.2),
+                    selectedColor: theme.colorScheme.primary.withOpacity(0.2),
                     checkmarkColor: theme.colorScheme.primary,
                   );
                 }).toList(),
@@ -287,30 +285,41 @@ class _InvestmentCriteriaScreenState
                     label: Text(stage),
                     selected: isSelected,
                     onSelected: (_) => _toggleStage(stage),
-                    selectedColor:
-                        theme.colorScheme.secondary.withOpacity(0.2),
+                    selectedColor: theme.colorScheme.secondary.withOpacity(0.2),
                     checkmarkColor: theme.colorScheme.secondary,
                   );
                 }).toList(),
               ),
               const SizedBox(height: 24),
 
-              // Additional Notes
+              // Description
               Text(
-                'Additional Notes (Optional)',
+                'Description',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 12),
               TextFormField(
-                controller: _notesController,
-                maxLines: 3,
+                controller: _descriptionController,
+                maxLines: 4,
                 decoration: const InputDecoration(
+                  labelText: 'Description',
                   hintText:
-                      'Any specific requirements or preferences...',
+                      'Describe the startups you invest in and your main requirements.',
+                  prefixIcon: Icon(Icons.description_outlined),
                   alignLabelWithHint: true,
                 ),
+                validator: (value) {
+                  final text = value?.trim() ?? '';
+                  if (text.isEmpty) {
+                    return 'Description is required';
+                  }
+                  if (text.length < 30) {
+                    return 'Description should be at least 30 characters';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 32),
 

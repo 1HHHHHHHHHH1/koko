@@ -36,12 +36,12 @@ class MLService {
               'project_tags': project.tags ?? const <String>[],
               'funding_goal': project.fundingGoal,
               'investor_name': investor.name,
-              'investor_bio': _investorText(investor),
+              'investor_description': _investorDescription(investor),
+              'investor_bio': _investorDescription(investor),
               'investor_industries': _investorIndustries(investor),
               'investor_stages': investor.criteria?.stages ?? const <String>[],
               'investor_min_investment': investor.criteria?.minInvestment,
               'investor_max_investment': investor.criteria?.maxInvestment,
-              'investor_notes': investor.criteria?.additionalNotes,
             }),
           )
           .timeout(_timeout);
@@ -78,12 +78,12 @@ class MLService {
                   .map((inv) => {
                         'id': inv.id,
                         'name': inv.name,
-                        'bio': _investorText(inv),
+                        'description': _investorDescription(inv),
+                        'bio': _investorDescription(inv),
                         'industries': _investorIndustries(inv),
                         'stages': inv.criteria?.stages ?? const <String>[],
                         'min_investment': inv.criteria?.minInvestment,
                         'max_investment': inv.criteria?.maxInvestment,
-                        'notes': inv.criteria?.additionalNotes,
                       })
                   .toList(),
             }),
@@ -117,7 +117,7 @@ class MLService {
   MLPrediction _fallback(Project project, Investor investor) {
     final c = investor.criteria;
     final industries = _investorIndustries(investor);
-    final investorText = _investorText(investor).toLowerCase();
+    final investorText = _investorDescription(investor).toLowerCase();
     double score = 0;
     final pos = <String>[];
     final neg = <String>[];
@@ -151,7 +151,7 @@ class MLService {
       pos.add('description alignment');
     }
     if (investorText.contains(project.industry.toLowerCase())) {
-      pos.add('bio mentions ${project.industry}');
+      pos.add('description mentions ${project.industry}');
     }
     score = (score + pos.length * 0.04 - neg.length * 0.08).clamp(0.0, 1.0);
     if (descriptionScore > 0) {
@@ -177,7 +177,7 @@ class MLService {
         '${project.title} ${project.description} ${project.industry}'
             .toLowerCase();
     final investorText =
-        '${_investorText(investor)} ${_investorIndustries(investor).join(' ')}'
+        '${_investorDescription(investor)} ${_investorIndustries(investor).join(' ')}'
             .toLowerCase()
             .trim();
 
@@ -206,13 +206,8 @@ class MLService {
         .toSet();
   }
 
-  String _investorText(Investor investor) {
-    final parts = <String>[
-      if ((investor.bio ?? '').trim().isNotEmpty) investor.bio!.trim(),
-      if ((investor.criteria?.additionalNotes ?? '').trim().isNotEmpty)
-        investor.criteria!.additionalNotes!.trim(),
-    ];
-    return parts.join(' ').trim();
+  String _investorDescription(Investor investor) {
+    return (investor.criteria?.additionalNotes ?? '').trim();
   }
 
   List<String> _investorIndustries(Investor investor) {

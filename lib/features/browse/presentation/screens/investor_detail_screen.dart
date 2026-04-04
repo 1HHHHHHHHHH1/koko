@@ -2,12 +2,80 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../providers/investor_provider.dart';
 import '../../../../providers/likes_provider.dart';
 import '../../../../providers/ratings_provider.dart';
 import '../../../../providers/messaging_provider.dart';
 import 'reviews_screen.dart';
 import '../../../../widgets/common/rating_display.dart';
+
+class _InvestorLocationDetails {
+  final String? location;
+  final String? country;
+
+  const _InvestorLocationDetails({
+    this.location,
+    this.country,
+  });
+}
+
+_InvestorLocationDetails _parseInvestorLocation(String? rawLocation) {
+  if (rawLocation == null) return const _InvestorLocationDetails();
+
+  final cleaned = rawLocation.trim();
+  if (cleaned.isEmpty) return const _InvestorLocationDetails();
+
+  final parts = cleaned
+      .split(',')
+      .map((part) => part.trim())
+      .where((part) => part.isNotEmpty)
+      .toList();
+
+  if (parts.length < 2) {
+    return _InvestorLocationDetails(location: cleaned);
+  }
+
+  final country = parts.removeLast();
+  final location = parts.join(', ');
+
+  return _InvestorLocationDetails(
+    location: location.isEmpty ? null : location,
+    country: country,
+  );
+}
+
+Uri? _buildInvestorUri(String rawUrl) {
+  final cleaned = rawUrl.trim();
+  if (cleaned.isEmpty) return null;
+
+  final hasScheme = RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*://').hasMatch(cleaned);
+  return Uri.tryParse(hasScheme ? cleaned : 'https://$cleaned');
+}
+
+String _formatInvestorLinkLabel(String rawUrl) {
+  return rawUrl
+      .trim()
+      .replaceFirst(RegExp(r'^https?://', caseSensitive: false), '')
+      .replaceFirst(RegExp(r'/$', caseSensitive: false), '');
+}
+
+Future<void> _openInvestorLink(BuildContext context, String rawUrl) async {
+  final uri = _buildInvestorUri(rawUrl);
+  if (uri == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('This link is not valid.')),
+    );
+    return;
+  }
+
+  final launched = await launchUrl(uri, mode: LaunchMode.platformDefault);
+  if (!launched && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Could not open ${uri.toString()}')),
+    );
+  }
+}
 
 class InvestorDetailScreen extends ConsumerStatefulWidget {
   final String investorId;
@@ -36,6 +104,12 @@ class _InvestorDetailScreenState extends ConsumerState<InvestorDetailScreen> {
     final investor = investorsState.selectedInvestor;
     final ratingSummary = ref.watch(ratingSummaryProvider(widget.investorId));
     final isLiked = ref.watch(isLikedProvider(widget.investorId));
+    final locationDetails = _parseInvestorLocation(investor?.location);
+    final investorDescription = investor?.criteria?.additionalNotes?.trim();
+    final hasDetails =
+        locationDetails.location != null || locationDetails.country != null;
+    final hasLinks = (investor?.website?.trim().isNotEmpty ?? false) ||
+        (investor?.linkedIn?.trim().isNotEmpty ?? false);
 
     if (investorsState.isLoading && investor == null) {
       return Scaffold(
@@ -181,7 +255,7 @@ class _InvestorDetailScreenState extends ConsumerState<InvestorDetailScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () => _showRatingDialog(context),
+                          onPressed: _showRatingDialog,
                           icon: const Icon(Icons.star),
                           label: const Text('Rate'),
                         ),
@@ -190,20 +264,69 @@ class _InvestorDetailScreenState extends ConsumerState<InvestorDetailScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Bio
-                  if (investor.bio != null) ...[
+                  if (investorDescription?.isNotEmpty ?? false) ...[
                     Text(
-                      'About',
+                      'Description',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      investor.bio!,
+                      investorDescription!,
                       style: theme.textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 24),
+                  ],
+
+                  if (hasDetails) ...[
+                    Text(
+                      'Details',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    if (locationDetails.location != null)
+                      _InfoRow(
+                        icon: Icons.location_on_outlined,
+                        label: 'Location',
+                        value: locationDetails.location!,
+                      ),
+                    if (locationDetails.country != null)
+                      _InfoRow(
+                        icon: Icons.public,
+                        label: 'Country',
+                        value: locationDetails.country!,
+                      ),
+                    const SizedBox(height: 12),
+                  ],
+
+                  if (hasLinks) ...[
+                    Text(
+                      'Links',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    if (investor.website?.trim().isNotEmpty ?? false)
+                      _LinkRow(
+                        icon: Icons.language,
+                        label: 'Website',
+                        value: _formatInvestorLinkLabel(investor.website!),
+                        onTap: () =>
+                            _openInvestorLink(context, investor.website!),
+                      ),
+                    if (investor.linkedIn?.trim().isNotEmpty ?? false)
+                      _LinkRow(
+                        icon: Icons.link,
+                        label: 'LinkedIn',
+                        value: _formatInvestorLinkLabel(investor.linkedIn!),
+                        onTap: () =>
+                            _openInvestorLink(context, investor.linkedIn!),
+                      ),
+                    const SizedBox(height: 12),
                   ],
 
                   // Investment Criteria
@@ -244,16 +367,6 @@ class _InvestorDetailScreenState extends ConsumerState<InvestorDetailScreen> {
                     ),
                     const SizedBox(height: 24),
                   ],
-
-                  // Location
-                  if (investor.location != null) ...[
-                    _InfoRow(
-                      icon: Icons.location_on_outlined,
-                      label: 'Location',
-                      value: investor.location!,
-                    ),
-                    const SizedBox(height: 16),
-                  ],
                 ],
               ),
             ),
@@ -263,13 +376,13 @@ class _InvestorDetailScreenState extends ConsumerState<InvestorDetailScreen> {
     );
   }
 
-  void _showRatingDialog(BuildContext context) {
+  void _showRatingDialog() {
     double rating = 0;
     final commentController = TextEditingController();
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Rate this Investor'),
           content: Column(
@@ -303,12 +416,13 @@ class _InvestorDetailScreenState extends ConsumerState<InvestorDetailScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Cancel'),
             ),
             FilledButton(
               onPressed: () async {
                 if (rating > 0) {
+                  final messenger = ScaffoldMessenger.of(context);
                   await ref.read(ratingsProvider.notifier).submitRating(
                         targetId: widget.investorId,
                         targetType: 'investor',
@@ -317,15 +431,14 @@ class _InvestorDetailScreenState extends ConsumerState<InvestorDetailScreen> {
                             ? null
                             : commentController.text,
                       );
-                  if (mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Rating submitted!'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  }
+                  if (!mounted) return;
+                  Navigator.of(context).pop();
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('Rating submitted!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
                 }
               },
               child: const Text('Submit'),
@@ -397,23 +510,96 @@ class _InfoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: Colors.grey[600]),
-        const SizedBox(width: 8),
-        Text(
-          '$label: ',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: Colors.grey[600],
+    return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 20, color: Colors.grey[600]),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ));
+  }
+}
+
+class _LinkRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  const _LinkRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final linkColor = Colors.blue.shade700;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: 20, color: Colors.grey[600]),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      value,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: linkColor,
+                        fontWeight: FontWeight.w500,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.open_in_new, size: 16, color: linkColor),
+            ],
           ),
         ),
-        Text(
-          value,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
