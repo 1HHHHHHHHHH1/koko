@@ -1,0 +1,29 @@
+services:
+  - type: web
+    runtime: python
+    name: venturebridge-semantic-backend
+    region: frankfurt
+    plan: free
+    rootDir: semantic-backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    buildFilter:
+      paths:
+        - render.yaml
+        - semantic-backend/**
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_EMBED_MODEL
+        value: text-embedding-3-large
+      - key: MATCH_THRESHOLD
+        value: "0.58"
+      - key: SEMANTIC_WEIGHT
+        value: "0.78"
+      - key: INDUSTRY_WEIGHT
+        value: "0.10"
+      - key: STAGE_WEIGHT
+        value: "0.06"
+      - key: FUNDING_WEIGHT
+        value: "0.06"

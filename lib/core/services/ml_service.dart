@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import '../constants/ml_backend_constants.dart';
 import '../../models/project.dart';
 import '../../models/investor.dart';
 
@@ -11,8 +12,8 @@ import '../../models/investor.dart';
 final mlServiceProvider = Provider<MLService>((ref) => MLService());
 
 class MLService {
-  // ✅ رابط سيرفرك
-  static const String _base = 'https://ml-backend-aq54.onrender.com';
+  // Change the active backend from MLBackendConstants.
+  static const String _base = MLBackendConstants.activeBaseUrl;
   static const Duration _timeout = Duration(seconds: 20);
 
   final _client = http.Client();
@@ -31,10 +32,16 @@ class MLService {
               'project_description': project.description,
               'project_title': project.title,
               'project_category': project.industry,
+              'project_stage': project.stage,
+              'project_tags': project.tags ?? const <String>[],
               'funding_goal': project.fundingGoal,
               'investor_name': investor.name,
               'investor_bio': _investorText(investor),
               'investor_industries': _investorIndustries(investor),
+              'investor_stages': investor.criteria?.stages ?? const <String>[],
+              'investor_min_investment': investor.criteria?.minInvestment,
+              'investor_max_investment': investor.criteria?.maxInvestment,
+              'investor_notes': investor.criteria?.additionalNotes,
             }),
           )
           .timeout(_timeout);
@@ -64,6 +71,8 @@ class MLService {
               'project_description': project.description,
               'project_title': project.title,
               'project_category': project.industry,
+              'project_stage': project.stage,
+              'project_tags': project.tags ?? const <String>[],
               'funding_goal': project.fundingGoal,
               'investors': investors
                   .map((inv) => {
@@ -71,6 +80,10 @@ class MLService {
                         'name': inv.name,
                         'bio': _investorText(inv),
                         'industries': _investorIndustries(inv),
+                        'stages': inv.criteria?.stages ?? const <String>[],
+                        'min_investment': inv.criteria?.minInvestment,
+                        'max_investment': inv.criteria?.maxInvestment,
+                        'notes': inv.criteria?.additionalNotes,
                       })
                   .toList(),
             }),
