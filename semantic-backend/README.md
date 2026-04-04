@@ -27,10 +27,15 @@ API contract as the current ML backend.
 
 - `OPENAI_EMBED_MODEL` default: `text-embedding-3-large`
 - `MATCH_THRESHOLD` default: `0.58`
-- `SEMANTIC_WEIGHT` default: `0.78`
-- `INDUSTRY_WEIGHT` default: `0.10`
-- `STAGE_WEIGHT` default: `0.06`
-- `FUNDING_WEIGHT` default: `0.06`
+- `SEMANTIC_WEIGHT` default: `0.72`
+- `INDUSTRY_WEIGHT` default: `0.12`
+- `STAGE_WEIGHT` default: `0.08`
+- `FUNDING_WEIGHT` default: `0.08`
+- `SEMANTIC_FLOOR` default: `0.60`
+- `SEMANTIC_CEILING` default: `0.82`
+- `INDUSTRY_MISMATCH_PENALTY` default: `0.10`
+- `STAGE_MISMATCH_PENALTY` default: `0.07`
+- `FUNDING_MISMATCH_PENALTY` default: `0.07`
 
 ## Local run
 

@@ -22,10 +22,15 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
 EMBED_MODEL = os.getenv("OPENAI_EMBED_MODEL", "text-embedding-3-large").strip()
 MATCH_THRESHOLD = float(os.getenv("MATCH_THRESHOLD", "0.58"))
-SEMANTIC_WEIGHT = float(os.getenv("SEMANTIC_WEIGHT", "0.78"))
-INDUSTRY_WEIGHT = float(os.getenv("INDUSTRY_WEIGHT", "0.10"))
-STAGE_WEIGHT = float(os.getenv("STAGE_WEIGHT", "0.06"))
-FUNDING_WEIGHT = float(os.getenv("FUNDING_WEIGHT", "0.06"))
+SEMANTIC_WEIGHT = float(os.getenv("SEMANTIC_WEIGHT", "0.72"))
+INDUSTRY_WEIGHT = float(os.getenv("INDUSTRY_WEIGHT", "0.12"))
+STAGE_WEIGHT = float(os.getenv("STAGE_WEIGHT", "0.08"))
+FUNDING_WEIGHT = float(os.getenv("FUNDING_WEIGHT", "0.08"))
+SEMANTIC_FLOOR = float(os.getenv("SEMANTIC_FLOOR", "0.60"))
+SEMANTIC_CEILING = float(os.getenv("SEMANTIC_CEILING", "0.82"))
+INDUSTRY_MISMATCH_PENALTY = float(os.getenv("INDUSTRY_MISMATCH_PENALTY", "0.10"))
+STAGE_MISMATCH_PENALTY = float(os.getenv("STAGE_MISMATCH_PENALTY", "0.07"))
+FUNDING_MISMATCH_PENALTY = float(os.getenv("FUNDING_MISMATCH_PENALTY", "0.07"))
 HTTP_TIMEOUT = float(os.getenv("HTTP_TIMEOUT_SECONDS", "30"))
 
 app = FastAPI(title="VentureBridge Semantic Matching API", version="1.0.0")
@@ -279,7 +284,8 @@ def _score_match(
     min_investment: Optional[float],
     max_investment: Optional[float],
 ) -> dict[str, Any]:
-    semantic_score = _cosine_similarity(project_vector, investor_vector)
+    raw_semantic_score = _cosine_similarity(project_vector, investor_vector)
+    semantic_score = _calibrated_semantic_score(raw_semantic_score)
     industry_score = _industry_score(project_category, investor_industries)
     stage_score = _stage_score(project_stage, investor_stages)
     funding_score = _funding_score(funding_goal, min_investment, max_investment)
@@ -290,14 +296,22 @@ def _score_match(
         + (stage_score * STAGE_WEIGHT)
         + (funding_score * FUNDING_WEIGHT)
     )
+
+    if investor_industries and industry_score == 0.0:
+        probability -= INDUSTRY_MISMATCH_PENALTY
+    if investor_stages and stage_score == 0.0 and project_stage:
+        probability -= STAGE_MISMATCH_PENALTY
+    if (min_investment is not None or max_investment is not None) and funding_score < 1.0:
+        probability -= FUNDING_MISMATCH_PENALTY
+
     probability = max(0.0, min(1.0, probability))
 
     positive_signals = []
     negative_signals = []
 
-    if semantic_score >= 0.78:
+    if semantic_score >= 0.75:
         positive_signals.append("strong semantic alignment")
-    elif semantic_score >= 0.68:
+    elif semantic_score >= 0.45:
         positive_signals.append("good semantic alignment")
     else:
         negative_signals.append("weak semantic alignment")
@@ -342,6 +356,18 @@ def _cosine_similarity(left: np.ndarray, right: np.ndarray) -> float:
 
     cosine = float(np.dot(left, right) / (left_norm * right_norm))
     return max(0.0, min(1.0, (cosine + 1.0) / 2.0))
+
+
+def _calibrated_semantic_score(normalized_cosine: float) -> float:
+    if normalized_cosine <= SEMANTIC_FLOOR:
+        return 0.0
+    if SEMANTIC_CEILING <= SEMANTIC_FLOOR:
+        return max(0.0, min(1.0, normalized_cosine))
+
+    return max(
+        0.0,
+        min(1.0, (normalized_cosine - SEMANTIC_FLOOR) / (SEMANTIC_CEILING - SEMANTIC_FLOOR)),
+    )
 
 
 def _industry_score(project_category: str, investor_industries: List[str]) -> float:
