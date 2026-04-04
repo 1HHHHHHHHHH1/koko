@@ -1,3 +1,13 @@
+---
+title: VentureBridge Semantic Backend
+emoji: "🧠"
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # VentureBridge Semantic Backend
 
 Semantic matching backend that keeps the same `/predict` and `/predict/bulk`
@@ -41,6 +51,26 @@ Steps:
 3. During the first setup, enter `OPENAI_API_KEY` when Render prompts for it.
 4. Deploy the service.
 5. Copy the generated `.onrender.com` URL.
+
+## Hugging Face Spaces deploy
+
+If Render asks for a payment card, you can deploy this backend as a Docker Space
+instead.
+
+Steps:
+
+1. Create a new Space on Hugging Face.
+2. Choose `Docker` as the SDK.
+3. Upload the contents of this `semantic-backend` folder.
+4. In the Space settings, add a Secret named `OPENAI_API_KEY`.
+5. Wait for the build to finish, then open the generated `*.hf.space` URL.
+
+Notes:
+
+- Free `CPU Basic` hardware is available on Spaces.
+- Free Spaces can go to sleep when idle.
+- The backend contract remains the same, so Flutter still switches by changing
+  one base URL.
 
 ## Switch from Flutter
 
