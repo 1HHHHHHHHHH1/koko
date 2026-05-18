@@ -342,7 +342,7 @@ Contributions make the open-source community an amazing place to learn, inspire,
 
 <div align="center">
 
-**Osama AL Hajj**
+**Osama AL Hajj   &  KoKO**
 
 [![GitHub](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white)](https://github.com/OsamaALHajj)
 
